@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50;
+  }
+}
+
+@layer components {
+  .feature-card {
+    @apply bg-black rounded-2xl p-8 text-white shadow-xl border border-gray-800;
+  }
+  
+  .learning-card {
+    @apply bg-black rounded-xl p-6 shadow-lg border-l-4 border-primary-500 text-white;
+  }
+  
+  .stat-box {
+    @apply bg-gray-100 rounded-xl p-6 text-center;
+  }
+  
+  .stat-number {
+    @apply text-4xl font-bold text-primary-800;
+  }
+  
+  .stat-label {
+    @apply text-sm text-gray-600 uppercase tracking-wider;
+  }
+  
+  .badge {
+    @apply inline-block px-3 py-1 rounded-full text-sm font-semibold text-white mr-2 mb-2;
+  }
+  
+  .badge-beginner {
+    @apply bg-green-500;
+  }
+  
+  .badge-intermediate {
+    @apply bg-yellow-500;
+  }
+  
+  .badge-advanced {
+    @apply bg-red-500;
+  }
+  
+  .badge-intelligent {
+    @apply bg-cyan-500;
+  }
+  
+  .badge-personnalise {
+    @apply bg-teal-500;
+  }
+  
+  .course-card {
+    @apply bg-white rounded-xl p-6 shadow-md border-l-4 border-primary-500 transition-transform hover:-translate-y-1;
+  }
+}

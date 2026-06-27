@@ -1,0 +1,164 @@
+# ══════════════════════════════════════════
+#   .gitignore — EdTech SaaS IA (PFE 2025)
+# ══════════════════════════════════════════
+
+# ─────────────────────────────────────────
+# BACKEND — Python / FastAPI
+# ─────────────────────────────────────────
+
+# Environnement virtuel Python
+backend/venv/
+backend/.venv/
+backend/env/
+backend/.env/
+
+# Variables d'environnement sensibles
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Cache Python
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/*.pyd
+backend/.Python
+
+# Pytest / coverage
+backend/.pytest_cache/
+backend/htmlcov/
+backend/.coverage
+backend/coverage.xml
+
+# Alembic (garder les scripts, ignorer les caches)
+backend/alembic/__pycache__/
+
+# Fichiers de build / distribution
+backend/build/
+backend/dist/
+backend/*.egg-info/
+backend/.eggs/
+
+# Logs
+backend/*.log
+backend/logs/
+
+# Modèles IA lourds (optionnel : décommenter si trop volumineux)
+# backend/tutor_ia_model/
+# backend/models_pkl/
+
+# Fichiers statiques générés / uploadés
+backend/static/uploads/
+backend/static/tmp/
+
+
+# ─────────────────────────────────────────
+# FRONTEND — Node.js / React / Vite
+# ─────────────────────────────────────────
+
+# Dépendances Node
+front_app/node_modules/
+
+# Variables d'environnement sensibles
+front_app/.env
+front_app/.env.*
+!front_app/.env.example
+
+# Build Vite
+front_app/dist/
+front_app/build/
+
+# Cache Vite / TypeScript
+front_app/.vite/
+front_app/tsconfig.tsbuildinfo
+
+# Logs npm / yarn
+front_app/npm-debug.log*
+front_app/yarn-debug.log*
+front_app/yarn-error.log*
+
+# Cache ESLint
+front_app/.eslintcache
+
+
+# ─────────────────────────────────────────
+# MAIN APP — Dossier principal
+# ─────────────────────────────────────────
+
+# Environnement virtuel Python
+main_app/venv/
+main_app/.venv/
+main_app/env/
+
+# Dépendances Node
+main_app/node_modules/
+
+# Fichiers JSON de config (package.json, package-lock.json, tsconfig, etc.)
+main_app/*.json
+
+# Variables d'environnement
+main_app/.env
+main_app/.env.*
+!main_app/.env.example
+
+
+# ─────────────────────────────────────────
+# SYSTÈME D'EXPLOITATION
+# ─────────────────────────────────────────
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+
+# ─────────────────────────────────────────
+# ÉDITEURS / IDE
+# ─────────────────────────────────────────
+
+# VSCode
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# JetBrains (PyCharm, WebStorm, IntelliJ)
+.idea/
+*.iml
+*.iws
+
+# Vim / Emacs
+*.swp
+*.swo
+*~
+\#*\#
+
+
+# ─────────────────────────────────────────
+# DIVERS
+# ─────────────────────────────────────────
+
+# Backups base de données
+*.sql.bak
+backup_*.sql
+
+# Archives temporaires
+*.zip
+*.tar.gz
+*.rar
+
+# Fichiers temporaires
+*.tmp
+*.temp
+.temp/
+tmp/

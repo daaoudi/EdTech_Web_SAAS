@@ -1,0 +1,289 @@
+{
+  "model_version": "3.2",
+  "bert_model": "paraphrase-multilingual-MiniLM-L12-v2",
+  "cours_count": 41,
+  "questions_count": 360,
+  "embeddings_shape": [
+    41,
+    384
+  ],
+  "evaluation": {
+    "precision": 0.9467,
+    "recall": 0.8704,
+    "f1": 0.8943,
+    "n_tests": 30,
+    "details": [
+      {
+        "test": 0,
+        "gt_size": 3,
+        "pred_size": 5,
+        "intersection": 3,
+        "precision": 0.6,
+        "recall": 1.0,
+        "f1": 0.75
+      },
+      {
+        "test": 1,
+        "gt_size": 5,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      {
+        "test": 2,
+        "gt_size": 4,
+        "pred_size": 5,
+        "intersection": 4,
+        "precision": 0.8,
+        "recall": 1.0,
+        "f1": 0.8888888888888888
+      },
+      {
+        "test": 3,
+        "gt_size": 6,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091
+      },
+      {
+        "test": 4,
+        "gt_size": 4,
+        "pred_size": 5,
+        "intersection": 4,
+        "precision": 0.8,
+        "recall": 1.0,
+        "f1": 0.8888888888888888
+      },
+      {
+        "test": 5,
+        "gt_size": 4,
+        "pred_size": 5,
+        "intersection": 4,
+        "precision": 0.8,
+        "recall": 1.0,
+        "f1": 0.8888888888888888
+      },
+      {
+        "test": 6,
+        "gt_size": 6,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091
+      },
+      {
+        "test": 7,
+        "gt_size": 5,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      {
+        "test": 8,
+        "gt_size": 5,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      {
+        "test": 9,
+        "gt_size": 4,
+        "pred_size": 4,
+        "intersection": 4,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      {
+        "test": 10,
+        "gt_size": 5,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      {
+        "test": 11,
+        "gt_size": 7,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 0.7142857142857143,
+        "f1": 0.8333333333333334
+      },
+      {
+        "test": 12,
+        "gt_size": 6,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091
+      },
+      {
+        "test": 13,
+        "gt_size": 8,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 0.625,
+        "f1": 0.7692307692307693
+      },
+      {
+        "test": 14,
+        "gt_size": 5,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      {
+        "test": 15,
+        "gt_size": 5,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      {
+        "test": 16,
+        "gt_size": 6,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091
+      },
+      {
+        "test": 17,
+        "gt_size": 8,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 0.625,
+        "f1": 0.7692307692307693
+      },
+      {
+        "test": 18,
+        "gt_size": 6,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091
+      },
+      {
+        "test": 19,
+        "gt_size": 8,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 0.625,
+        "f1": 0.7692307692307693
+      },
+      {
+        "test": 20,
+        "gt_size": 6,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091
+      },
+      {
+        "test": 21,
+        "gt_size": 4,
+        "pred_size": 5,
+        "intersection": 4,
+        "precision": 0.8,
+        "recall": 1.0,
+        "f1": 0.8888888888888888
+      },
+      {
+        "test": 22,
+        "gt_size": 6,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091
+      },
+      {
+        "test": 23,
+        "gt_size": 4,
+        "pred_size": 5,
+        "intersection": 4,
+        "precision": 0.8,
+        "recall": 1.0,
+        "f1": 0.8888888888888888
+      },
+      {
+        "test": 24,
+        "gt_size": 7,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 0.7142857142857143,
+        "f1": 0.8333333333333334
+      },
+      {
+        "test": 25,
+        "gt_size": 6,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091
+      },
+      {
+        "test": 26,
+        "gt_size": 7,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 0.7142857142857143,
+        "f1": 0.8333333333333334
+      },
+      {
+        "test": 27,
+        "gt_size": 7,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 0.7142857142857143,
+        "f1": 0.8333333333333334
+      },
+      {
+        "test": 28,
+        "gt_size": 4,
+        "pred_size": 5,
+        "intersection": 4,
+        "precision": 0.8,
+        "recall": 1.0,
+        "f1": 0.8888888888888888
+      },
+      {
+        "test": 29,
+        "gt_size": 7,
+        "pred_size": 5,
+        "intersection": 5,
+        "precision": 1.0,
+        "recall": 0.7142857142857143,
+        "f1": 0.8333333333333334
+      }
+    ]
+  },
+  "saved_at": "2026-05-24T18:48:04.343121"
+}
