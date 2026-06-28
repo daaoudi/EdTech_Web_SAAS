@@ -34,7 +34,7 @@ Plateforme EdTech innovante utilisant l'Intelligence Artificielle pour personnal
 | Fonctionnalité | Technologie IA |
 |---|---|
 | Recommandation du mode d'apprentissage optimal | Random Forest |
-| Génération de quiz adaptatifs | BERT / CamemBERT |
+| Génération de quiz adaptatifs | BERT / paraphrase-multilingual-MiniLM-L12-v2  |
 | Recherche vocale intelligente | OpenAI Whisper + NLP |
 | Prédiction et prévention du décrochage | Sequential Pattern Mining |
 | Apprentissage multimodal | Texte, Audio, Vidéo |
