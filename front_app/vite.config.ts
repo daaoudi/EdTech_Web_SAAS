@@ -16,18 +16,16 @@ export default defineConfig({
       },
     },
   },
-  // Ajouter pour Vercel
+  // 🔥 Correction : Supprimer logOverride qui n'existe pas
   build: {
     rollupOptions: {
       onwarn(warning, warn) {
         // Ignorer les warnings de variables non utilisées
         if (warning.code === 'UNUSED_EXTERNAL_IMPORT') return
-        if (warning.message.includes('is declared but its value is never read')) return
+        if (warning.message?.includes('is declared but its value is never read')) return
+        if (warning.message?.includes('is assigned a value but never used')) return
         warn(warning)
       }
     }
-  },
-  esbuild: {
-    logOverride: { 'unused-vars': 'silent' }
   }
 })
