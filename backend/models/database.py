@@ -315,32 +315,36 @@ class Database:
         await self.execute_query(query, user_id)
     
     async def get_users_with_stats(self, limit: int = 100, skip: int = 0) -> List[Dict]:
-        
+        """
+        Récupérer les utilisateurs avec leurs statistiques
+        """
         try:
-            query = """
-            SELECT 
-                u.id,
-                u.email,
-                u.nom,
-                u.prenom,
-                u.role_id,
-                r.nom_role as role_name,
-                u.est_actif,
-                u.date_inscription,
-                u.derniere_connexion,
-                COUNT(DISTINCT ra.id) as total_results,
-                COALESCE(AVG(ra.score_quiz), 0) as avg_score
-            FROM utilisateurs u
-            LEFT JOIN roles r ON u.role_id = r.id
-            LEFT JOIN resultats_apprentissage ra ON u.id = ra.utilisateur_id
-            GROUP BY u.id, u.email, u.nom, u.prenom, u.role_id, r.nom_role, u.est_actif, u.date_inscription, u.derniere_connexion
-            ORDER BY u.id
-            LIMIT $1 OFFSET $2
-            """
-            rows = await self.fetch(query, limit, skip)
-            return [dict(row) for row in rows]
+            async with self.get_connection() as conn:
+                query = """
+                SELECT 
+                    u.id,
+                    u.email,
+                    u.nom,
+                    u.prenom,
+                    u.role_id,
+                    r.nom_role as role_name,
+                    u.est_actif,
+                    u.date_inscription,
+                    u.derniere_connexion,
+                    COUNT(DISTINCT ra.id) as total_results,
+                    COALESCE(AVG(ra.score_quiz), 0) as avg_score
+                FROM utilisateurs u
+                LEFT JOIN roles r ON u.role_id = r.id
+                LEFT JOIN resultats_apprentissage ra ON u.id = ra.utilisateur_id
+                GROUP BY u.id, u.email, u.nom, u.prenom, u.role_id, r.nom_role, u.est_actif, u.date_inscription, u.derniere_connexion
+                ORDER BY u.id
+                LIMIT $1 OFFSET $2
+                """
+                rows = await conn.fetch(query, limit, skip)
+                return [dict(row) for row in rows]
         except Exception as e:
             logger.error(f"Erreur dans get_users_with_stats: {e}")
+            logger.error(traceback.format_exc())
             raise
     
     
@@ -900,6 +904,171 @@ class Database:
             user_data[key] = await self.execute_query(query, user_id)
         
         return user_data
+    
+    async def create_certificates_table(self):
+        """Crée la table des certificats si elle n'existe pas"""
+        try:
+            async with self.get_connection() as conn:
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS certificats (
+                        id SERIAL PRIMARY KEY,
+                        user_id INTEGER NOT NULL REFERENCES utilisateurs(id) ON DELETE CASCADE,
+                        course_id INTEGER NOT NULL REFERENCES cours_html(id) ON DELETE CASCADE,
+                        mode VARCHAR(50) NOT NULL,
+                        score FLOAT NOT NULL,
+                        certificate_url TEXT,
+                        certificate_code VARCHAR(50) UNIQUE NOT NULL,
+                        date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                # Créer les index
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_certificats_user_id ON certificats(user_id)
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_certificats_certificate_code ON certificats(certificate_code)
+                """)
+                
+                logger.info("✅ Table certificats créée avec succès")
+                return True
+        except Exception as e:
+            logger.error(f"❌ Erreur création table certificats: {e}")
+            return False
+    
+    async def save_certificate(self, user_id: int, course_id: int, mode: str, 
+                               score: float, certificate_url: str, certificate_code: str) -> Optional[int]:
+        """
+        Sauvegarde un certificat dans la base de données
+        """
+        try:
+            async with self.get_connection() as conn:
+                # Vérifier si la table existe
+                table_exists = await conn.fetchval("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.tables 
+                        WHERE table_name = 'certificats'
+                    )
+                """)
+                
+                if not table_exists:
+                    await self.create_certificates_table()
+                
+                row = await conn.fetchrow("""
+                    INSERT INTO certificats 
+                    (user_id, course_id, mode, score, certificate_url, certificate_code, date_created)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    RETURNING id
+                """, 
+                    user_id,
+                    course_id,
+                    mode,
+                    score,
+                    certificate_url,
+                    certificate_code,
+                    datetime.now()
+                )
+                
+                return row['id'] if row else None
+        except Exception as e:
+            logger.error(f"❌ Erreur sauvegarde certificat: {e}")
+            return None
+    
+    async def get_user_certificates(self, user_id: int) -> List[Dict[str, Any]]:
+        """
+        Récupère tous les certificats d'un utilisateur
+        """
+        try:
+            async with self.get_connection() as conn:
+                # Vérifier si la table existe
+                table_exists = await conn.fetchval("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.tables 
+                        WHERE table_name = 'certificats'
+                    )
+                """)
+                
+                if not table_exists:
+                    return []
+                
+                rows = await conn.fetch("""
+                    SELECT c.*, 
+                           ch.titre as course_title,
+                           u.email as user_email,
+                           u.nom as user_nom,
+                           u.prenom as user_prenom
+                    FROM certificats c
+                    JOIN cours_html ch ON c.course_id = ch.id
+                    JOIN utilisateurs u ON c.user_id = u.id
+                    WHERE c.user_id = $1
+                    ORDER BY c.date_created DESC
+                """, user_id)
+                
+                return [dict(row) for row in rows]
+        except Exception as e:
+            logger.error(f"❌ Erreur récupération certificats: {e}")
+            return []
+    
+    async def get_certificate_by_code(self, code: str) -> Optional[Dict[str, Any]]:
+        """
+        Récupère un certificat par son code
+        """
+        try:
+            async with self.get_connection() as conn:
+                # Vérifier si la table existe
+                table_exists = await conn.fetchval("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.tables 
+                        WHERE table_name = 'certificats'
+                    )
+                """)
+                
+                if not table_exists:
+                    return None
+                
+                row = await conn.fetchrow("""
+                    SELECT c.*, 
+                           ch.titre as course_title,
+                           u.email as user_email,
+                           u.nom as user_nom,
+                           u.prenom as user_prenom
+                    FROM certificats c
+                    JOIN cours_html ch ON c.course_id = ch.id
+                    JOIN utilisateurs u ON c.user_id = u.id
+                    WHERE c.certificate_code = $1
+                """, code)
+                
+                return dict(row) if row else None
+        except Exception as e:
+            logger.error(f"❌ Erreur récupération certificat par code: {e}")
+            return None
+    
+    async def certificate_exists(self, user_id: int, course_id: int, mode: str) -> bool:
+        """
+        Vérifie si un certificat existe déjà pour un utilisateur et un cours
+        """
+        try:
+            async with self.get_connection() as conn:
+                # Vérifier si la table existe
+                table_exists = await conn.fetchval("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.tables 
+                        WHERE table_name = 'certificats'
+                    )
+                """)
+                
+                if not table_exists:
+                    return False
+                
+                count = await conn.fetchval("""
+                    SELECT COUNT(*) FROM certificats
+                    WHERE user_id = $1 AND course_id = $2 AND mode = $3
+                """, user_id, course_id, mode)
+                
+                return count > 0
+        except Exception as e:
+            logger.error(f"❌ Erreur vérification certificat: {e}")
+            return False
 
 
 db = Database()

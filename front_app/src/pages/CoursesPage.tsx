@@ -6,18 +6,32 @@ import { courseService } from '../services/courseService';
 import type { Course } from '../services/courseService';
 import SearchBar from '../components/SearchBar';
 import type { VoiceSearchResult } from '../services/voiceSearchService';
+import { useAuth } from '../contexts/AuthContext';
 
 const CoursesPage = () => {
+  const { user, isAuthenticated } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [error, setError] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<VoiceSearchResult[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  
+  
+  const [userLevel, setUserLevel] = useState<string>('all');
 
   useEffect(() => {
     loadCourses();
-  }, []);
+    
+    if (isAuthenticated && user) {
+      const level = user.niveau_global || user.type_apprenant || 'all';
+      setUserLevel(level);
+      
+      if (level !== 'all') {
+        setFilter(level);
+      }
+    }
+  }, [isAuthenticated, user]);
 
   const loadCourses = async () => {
     try {
@@ -25,9 +39,7 @@ const CoursesPage = () => {
       setError(null);
       const data = await courseService.getAllCourses();
       
-      
       const activeCourses = data.filter(course => course.est_actif !== false);
-      
       
       const normalizedCourses = activeCourses.map(course => ({
         ...course,
@@ -61,7 +73,6 @@ const CoursesPage = () => {
     }
   };
 
-  
   const normalizeDifficulty = (difficulte: string): string => {
     const difficultyMap: Record<string, string> = {
       'debutant': 'débutant',
@@ -84,7 +95,6 @@ const CoursesPage = () => {
     setIsSearching(false);
   };
 
-  
   const getDisplayCourses = (): Course[] => {
     if (!searchResults) return courses;
     
@@ -108,7 +118,6 @@ const CoursesPage = () => {
     const courseDifficulty = course.difficulte?.toLowerCase() || '';
     const filterDifficulty = filter.toLowerCase();
     
-    
     const difficultyMapping: Record<string, string[]> = {
       'débutant': ['débutant', 'debutant', 'facile', 'base'],
       'intermédiaire': ['intermédiaire', 'intermediaire', 'moyen'],
@@ -119,9 +128,38 @@ const CoursesPage = () => {
     return filterVariations.some(variation => courseDifficulty.includes(variation));
   };
   
-  const filteredCourses = displayedCourses.filter(course => matchesFilter(course));
-
   
+  const getRecommendedCourses = (courses: Course[]): Course[] => {
+    if (!isAuthenticated || userLevel === 'all') {
+      return courses;
+    }
+    
+    const levelMapping: Record<string, string[]> = {
+      'débutant': ['débutant', 'debutant', 'facile', 'base'],
+      'intermédiaire': ['intermédiaire', 'intermediaire', 'moyen'],
+      'avancé': ['avancé', 'avance', 'difficile', 'expert']
+    };
+    
+    const userLevelVariations = levelMapping[userLevel] || [userLevel];
+    
+   
+    const recommended = courses.filter(c => {
+      const courseDiff = c.difficulte?.toLowerCase() || '';
+      return userLevelVariations.some(v => courseDiff.includes(v));
+    });
+    
+    const others = courses.filter(c => {
+      const courseDiff = c.difficulte?.toLowerCase() || '';
+      return !userLevelVariations.some(v => courseDiff.includes(v));
+    });
+    
+    return [...recommended, ...others];
+  };
+  
+  const filteredCourses = getRecommendedCourses(
+    displayedCourses.filter(course => matchesFilter(course))
+  );
+
   const countByDifficulty = (difficulty: string): number => {
     const variations: Record<string, string[]> = {
       'débutant': ['débutant', 'debutant', 'facile', 'base'],
@@ -174,6 +212,21 @@ const CoursesPage = () => {
     return `${heures} h ${minutes} min`;
   };
 
+ 
+  const isUserLevelCourse = (course: Course): boolean => {
+    if (!isAuthenticated || userLevel === 'all') return false;
+    
+    const levelMapping: Record<string, string[]> = {
+      'débutant': ['débutant', 'debutant', 'facile', 'base'],
+      'intermédiaire': ['intermédiaire', 'intermediaire', 'moyen'],
+      'avancé': ['avancé', 'avance', 'difficile', 'expert']
+    };
+    
+    const userLevelVariations = levelMapping[userLevel] || [userLevel];
+    const courseDiff = course.difficulte?.toLowerCase() || '';
+    return userLevelVariations.some(v => courseDiff.includes(v));
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -202,9 +255,40 @@ const CoursesPage = () => {
     );
   }
 
+ 
+  const getUserLevelLabel = () => {
+    if (!isAuthenticated) return 'Visiteur';
+    const labels: Record<string, string> = {
+      'débutant': '🟢 Débutant',
+      'debutant': '🟢 Débutant',
+      'intermédiaire': '🟡 Intermédiaire',
+      'intermediaire': '🟡 Intermédiaire',
+      'avancé': '🔴 Avancé',
+      'avance': '🔴 Avancé'
+    };
+    return labels[userLevel] || userLevel || 'Tous niveaux';
+  };
+
   return (
     <div className="space-y-8">
      
+      {isAuthenticated && userLevel !== 'all' && (
+        <div className="bg-gradient-to-r from-primary-500 to-primary-700 rounded-xl p-4 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm opacity-90">Votre niveau</p>
+              <p className="text-xl font-bold">{getUserLevelLabel()}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm opacity-90">Cours recommandés</p>
+              <p className="text-xl font-bold">
+                {filteredCourses.filter(c => isUserLevelCourse(c)).length} cours
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col items-center space-y-4">
         <SearchBar onSearch={handleSearch} placeholder="🔍 Rechercher un cours par texte ou par voix..." />
         {isSearching && searchResults && (
@@ -225,6 +309,11 @@ const CoursesPage = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-3xl font-bold text-primary-800">
           {isSearching ? '🔍 Résultats de recherche' : '📚 Catalogue des cours'}
+          {isAuthenticated && userLevel !== 'all' && (
+            <span className="text-sm font-normal text-gray-500 ml-2">
+              (Adapté à votre niveau)
+            </span>
+          )}
         </h1>
         
         <div className="flex gap-2 flex-wrap">
@@ -263,49 +352,76 @@ const CoursesPage = () => {
               <p className="text-sm text-gray-400 mt-2">Essayez d'autres mots-clés</p>
             </>
           ) : (
-            <p className="text-gray-500">Aucun cours disponible pour ce niveau.</p>
+            <>
+              <p className="text-gray-500">Aucun cours disponible pour ce niveau.</p>
+              <p className="text-sm text-gray-400 mt-2">
+                {isAuthenticated ? (
+                  `Essayez de changer de filtre ou contactez l'administrateur.`
+                ) : (
+                  `Connectez-vous pour voir les cours adaptés à votre niveau.`
+                )}
+              </p>
+            </>
           )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCourses.map(course => (
-            <div key={course.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-xl font-semibold text-gray-800 line-clamp-2">{course.titre}</h3>
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getDifficultyColor(course.difficulte)}`}>
-                    {getDifficultyLabel(course.difficulte)}
-                  </span>
-                </div>
-                <p className="text-gray-600 mb-4 line-clamp-3">{course.description || 'Aucune description disponible'}</p>
-                {course.duree && course.duree > 0 && (
-                  <p className="text-sm text-gray-500 mb-4 flex items-center gap-1">
-                    <span>⏱️</span> {formatDuration(course.duree)}
-                  </p>
-                )}
-                {course.tags && course.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-4">
-                    {course.tags.slice(0, 3).map((tag, idx) => (
-                      <span key={idx} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
-                        {tag}
-                      </span>
-                    ))}
-                    {course.tags.length > 3 && (
-                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
-                        +{course.tags.length - 3}
-                      </span>
-                    )}
+          {filteredCourses.map(course => {
+            const isRecommended = isUserLevelCourse(course);
+            
+            return (
+              <div 
+                key={course.id} 
+                className={`bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 ${
+                  isRecommended ? 'border-2 border-primary-500' : ''
+                }`}
+              >
+                {isRecommended && (
+                  <div className="bg-primary-500 text-white text-xs font-semibold px-3 py-1 text-center">
+                    ⭐ Recommandé pour votre niveau
                   </div>
                 )}
-                <Link
-                  to={`/course/${course.id}`}
-                  className="inline-block w-full text-center px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
-                >
-                  Commencer le cours
-                </Link>
+                <div className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-xl font-semibold text-gray-800 line-clamp-2">{course.titre}</h3>
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getDifficultyColor(course.difficulte)}`}>
+                      {getDifficultyLabel(course.difficulte)}
+                    </span>
+                  </div>
+                  <p className="text-gray-600 mb-4 line-clamp-3">{course.description || 'Aucune description disponible'}</p>
+                  {course.duree && course.duree > 0 && (
+                    <p className="text-sm text-gray-500 mb-4 flex items-center gap-1">
+                      <span>⏱️</span> {formatDuration(course.duree)}
+                    </p>
+                  )}
+                  {course.tags && course.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-4">
+                      {course.tags.slice(0, 3).map((tag, idx) => (
+                        <span key={idx} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                          {tag}
+                        </span>
+                      ))}
+                      {course.tags.length > 3 && (
+                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                          +{course.tags.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <Link
+                    to={`/course/${course.id}`}
+                    className={`inline-block w-full text-center px-4 py-2 rounded-lg transition-colors ${
+                      isRecommended 
+                        ? 'bg-primary-500 text-white hover:bg-primary-600' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    {isRecommended ? '🎯 Commencer' : '📖 Voir le cours'}
+                  </Link>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

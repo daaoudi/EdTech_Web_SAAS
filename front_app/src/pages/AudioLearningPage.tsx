@@ -10,7 +10,192 @@ import type { Course } from '../services/courseService';
 import api from '../services/api';
 import { bertQuizService , bertRecommendationService } from '../services/bertService';
 import { mistakeService } from '../services/mistakeService';
+import { useNavigate } from 'react-router-dom';
+import { LearningProvider, LearningContextType } from '../contexts/LearningContext';
+import { useOutletContext } from 'react-router-dom';
 
+
+
+function getDefaultOptionsForQuestion(question: string): Record<string, string> {
+  if (!question || typeof question !== 'string') {
+    return { A: "Option A", B: "Option B", C: "Option C", D: "Option D" };
+  }
+  
+  const lowerQuestion = question.toLowerCase();
+  
+ 
+  if (lowerQuestion.includes("surligner") || lowerQuestion.includes("mark")) {
+    return { A: "<mark>", B: "<highlight>", C: "<strong>", D: "<em>" };
+  }
+  
+ 
+  if (lowerQuestion.includes("pliable") || lowerQuestion.includes("dépliable") || 
+      lowerQuestion.includes("details") || lowerQuestion.includes("summary")) {
+    return { A: "<details> et <summary>", B: "<collapse> et <expand>", 
+             C: "<fold> et <unfold>", D: "<hide> et <show>" };
+  }
+  
+  
+  if (lowerQuestion.includes("sémantique") || lowerQuestion.includes("semantique")) {
+    return { A: "Meilleur SEO et accessibilité", B: "Chargement plus rapide",
+             C: "Design plus joli", D: "Compatibilité avec plus de navigateurs" };
+  }
+  
+ 
+  if (lowerQuestion.includes("modifier") && lowerQuestion.includes("contenu") && 
+      (lowerQuestion.includes("texte") || lowerQuestion.includes("javascript"))) {
+    return { A: "element.value = nouveauTexte", B: "element.innerHTML = nouveauTexte",
+             C: "element.text = nouveauTexte", D: "element.content = nouveauTexte" };
+  }
+  
+ 
+  if (lowerQuestion.includes("titre principal") || lowerQuestion.includes("h1")) {
+    return { A: "<title>", B: "<h1>", C: "<head>", D: "<header>" };
+  }
+  
+  
+  if (lowerQuestion.includes("ligne dans un tableau") || lowerQuestion.includes("tr")) {
+    return { A: "<td>", B: "<tr>", C: "</table>", D: "<th>" };
+  }
+  
+  
+  if (lowerQuestion.includes("sélecteur") && lowerQuestion.includes("paragraphes")) {
+    return { A: "p", B: "#paragraph", C: ".paragraph", D: "<p>" };
+  }
+  
+  
+  if (lowerQuestion.includes("thématiquement lié") || lowerQuestion.includes("regroupe") || 
+      lowerQuestion.includes("section")) {
+    return { A: "<div>", B: "<group>", C: "<section>", D: "<article>" };
+  }
+  
+  
+  if (lowerQuestion.includes("structure suivante") || 
+    (lowerQuestion.includes("liste.html") && lowerQuestion.includes("index.html")) ||
+    (lowerQuestion.includes("chemin") && lowerQuestion.includes("liste.html")) ||
+    (lowerQuestion.includes("revenir") && lowerQuestion.includes("index.html")) ||
+    lowerQuestion.includes("produits") && lowerQuestion.includes("liste.html")) {
+  return { 
+    A: "../index.html",  
+    B: "./index.html",    
+    C: "/index.html",    
+    D: "index.html"       
+  };
+}
+  
+ 
+  if (lowerQuestion.includes("<main>") || lowerQuestion.includes("contenu principal")) {
+    return { A: "0 fois", B: "1 fois", C: "2 fois", D: "Autant qu'on veut" };
+  }
+  
+  
+  if (lowerQuestion.includes("taille du texte") || lowerQuestion.includes("font-size") || 
+    lowerQuestion.includes("propriete") && lowerQuestion.includes("taille") ||
+    lowerQuestion.includes("controle") && lowerQuestion.includes("texte") ||
+    lowerQuestion.includes("propriete css")) {
+  return { 
+    A: "text-size",      
+    B: "font-size",      
+    C: "size",           
+    D: "text-scale"      
+  };
+}
+  
+ 
+  if (lowerQuestion.includes("methode") && lowerQuestion.includes("javascript") ||
+      lowerQuestion.includes("changer") && lowerQuestion.includes("contenu") ||
+      lowerQuestion.includes("innerhtml")) {
+    return { A: "element.value = nouveauTexte", B: "element.innerHTML = nouveauTexte",
+             C: "element.text = nouveauTexte", D: "element.content = nouveauTexte" };
+  }
+  
+ 
+  return { A: "Option A", B: "Option B", C: "Option C", D: "Option D" };
+}
+
+
+function determineCorrectAnswer(questionText: string): string {
+  if (!questionText) return 'A';
+  
+  const lowerQuestion = questionText.toLowerCase();
+  
+  
+  const answerMap: Record<string, string> = {
+   
+    'surligner': 'A',
+    'mark': 'A',
+    'pliable': 'A',
+    'dépliable': 'A',
+    'details': 'A',
+    'summary': 'A',
+    'sémantique': 'A',
+    'semantique': 'A',
+    'titre principal': 'B',
+    'h1': 'B',
+    'ligne dans un tableau': 'B',
+    'tr': 'B',
+    'thématiquement lié': 'C',
+    'regroupe': 'C',
+    'section': 'C',
+    'structure suivante': 'A',
+    'liste.html': 'A',
+    'revenir': 'A',
+    'main': 'B',
+    'contenu principal': 'B',
+    
+  
+    'sélecteur': 'A',
+    'paragraphes': 'A',
+    'taille du texte': 'B',
+    'font-size': 'B',
+    'propriete': 'B',
+    'controle': 'B',
+    
+    
+    'innerhtml': 'B',
+    'modifier le contenu': 'B',
+    'changer le contenu': 'B',
+    'méthode javascript': 'B',
+    'contenu html': 'B'
+  };
+  
+  for (const [key, value] of Object.entries(answerMap)) {
+    if (lowerQuestion.includes(key)) {
+      return value;
+    }
+  }
+  
+  return 'A';
+}
+
+
+function cleanExamOptions(options: any, questionText: string): Record<string, string> {
+  const cleanOptions: Record<string, string> = {};
+  const keys = ['A', 'B', 'C', 'D'];
+  const defaultOptions = getDefaultOptionsForQuestion(questionText);
+  
+  keys.forEach((key) => {
+    let value = options?.[key] || options?.[key.toLowerCase()] || defaultOptions[key] || `Option ${key}`;
+    let clean = String(value);
+    
+    
+    clean = clean.replace(/^['"]+/, '').replace(/['"]+$/, '');
+    clean = clean.replace(/<[^>]*>/g, '');
+    clean = clean.replace(/^[:]\s*/, '');
+    clean = clean.trim();
+    
+    
+    if (!clean || clean.length < 2 || 
+        ['Option A', 'Option B', 'Option C', 'Option D', 'Première option', 'Deuxième option', 
+         'Troisième option', 'Quatrième option', 'A', 'B', 'C', 'D'].includes(clean)) {
+      clean = defaultOptions[key] || `Option ${key}`;
+    }
+    
+    cleanOptions[key] = clean;
+  });
+  
+  return cleanOptions;
+}
 
 interface Recommendation {
   cours_id: string;
@@ -20,6 +205,178 @@ interface Recommendation {
   direct_match: boolean;
   nb_erreurs: number;
 }
+
+
+const STATIC_EXAM_QUESTIONS: Question[] = [
+  {
+    id: 1001,
+    question: "Quelle balise HTML5 est utilisée pour surligner du texte ?",
+    options: {
+      A: "<mark>",
+      B: "<highlight>",
+      C: "<strong>",
+      D: "<em>"
+    },
+    reponse_correcte: "A",
+    points: 10,
+    difficulte: "facile",
+    explication: "La balise <mark> est utilisée pour surligner du texte en HTML5."
+  },
+  {
+    id: 1002,
+    question: "Quelles balises HTML5 permettent de créer du contenu pliable/dépliable ?",
+    options: {
+      A: "<details> et <summary>",
+      B: "<collapse> et <expand>",
+      C: "<fold> et <unfold>",
+      D: "<hide> et <show>"
+    },
+    reponse_correcte: "A",
+    points: 15,
+    difficulte: "difficile",
+    explication: "<details> et <summary> sont les balises HTML5 pour créer du contenu pliable/dépliable."
+  },
+  {
+    id: 1003,
+    question: "Quel est l'avantage principal des balises sémantiques HTML5 ?",
+    options: {
+      A: "Meilleur SEO et accessibilité",
+      B: "Chargement plus rapide",
+      C: "Design plus joli",
+      D: "Compatibilité avec plus de navigateurs"
+    },
+    reponse_correcte: "A",
+    points: 15,
+    difficulte: "difficile",
+    explication: "Les balises sémantiques améliorent le référencement SEO et l'accessibilité."
+  },
+  {
+    id: 1004,
+    question: "Comment modifier le contenu texte d'un element HTML en JavaScript ?",
+    options: {
+      A: "element.value = nouveauTexte",
+      B: "element.innerHTML = nouveauTexte",
+      C: "element.text = nouveauTexte",
+      D: "element.content = nouveauTexte"
+    },
+    reponse_correcte: "B",
+    points: 10,
+    difficulte: "facile",
+    explication: "element.innerHTML permet de modifier le contenu HTML d'un élément."
+  },
+  {
+    id: 1005,
+    question: "Quelle balise utiliser pour le titre principal d'une page HTML ?",
+    options: {
+      A: "<title>",
+      B: "<h1>",
+      C: "<head>",
+      D: "<header>"
+    },
+    reponse_correcte: "B",
+    points: 10,
+    difficulte: "facile",
+    explication: "La balise <h1> est utilisée pour le titre principal d'une page HTML."
+  },
+  {
+    id: 1006,
+    question: "Quelle balise HTML est utilisée pour créer une ligne dans un tableau ?",
+    options: {
+      A: "<td>",
+      B: "<tr>",
+      C: "</table>",
+      D: "<th>"
+    },
+    reponse_correcte: "B",
+    points: 10,
+    difficulte: "facile",
+    explication: "La balise <tr> (table row) crée une ligne dans un tableau HTML."
+  },
+  {
+    id: 1007,
+    question: "Quel est le sélecteur CSS qui cible TOUS les paragraphes d'une page ?",
+    options: {
+      A: "p",
+      B: "#paragraph",
+      C: ".paragraph",
+      D: "<p>"
+    },
+    reponse_correcte: "A",
+    points: 10,
+    difficulte: "facile",
+    explication: "Le sélecteur 'p' cible tous les paragraphes d'une page."
+  },
+  {
+    id: 1008,
+    question: "Quelle balise HTML5 regroupe du contenu thématiquement lié ?",
+    options: {
+      A: "<div>",
+      B: "<group>",
+      C: "<section>",
+      D: "<article>"
+    },
+    reponse_correcte: "C",
+    points: 10,
+    difficulte: "moyen",
+    explication: "La balise <section> regroupe du contenu thématiquement lié."
+  },
+  {
+    id: 1009,
+    question: "Vous avez la structure suivante : site/index.html et site/produits/liste.html. Quel chemin utiliser depuis liste.html pour revenir à index.html ?",
+    options: {
+      A: "../index.html",
+      B: "./index.html",
+      C: "/index.html",
+      D: "index.html"
+    },
+    reponse_correcte: "A",
+    points: 15,
+    difficulte: "moyen",
+    explication: "../index.html permet de remonter d'un niveau (de produits/ vers site/)."
+  },
+  {
+    id: 1010,
+    question: "Combien de fois peut-on utiliser la balise <main> dans une page HTML ?",
+    options: {
+      A: "0 fois",
+      B: "1 fois",
+      C: "2 fois",
+      D: "Autant qu'on veut"
+    },
+    reponse_correcte: "B",
+    points: 10,
+    difficulte: "moyen",
+    explication: "La balise <main> ne peut être utilisée qu'une seule fois par page."
+  },
+  {
+    id: 1011,
+    question: "Quelle propriete CSS controle la taille du texte ?",
+    options: {
+      A: "text-size",
+      B: "font-size",
+      C: "size",
+      D: "text-scale"
+    },
+    reponse_correcte: "B",
+    points: 10,
+    difficulte: "facile",
+    explication: "La propriété CSS font-size contrôle la taille du texte."
+  },
+  {
+    id: 1012,
+    question: "Quelle est la methode JavaScript pour changer le contenu HTML d'un element ?",
+    options: {
+      A: "element.value = nouveauTexte",
+      B: "element.innerHTML = nouveauTexte",
+      C: "element.text = nouveauTexte",
+      D: "element.content = nouveauTexte"
+    },
+    reponse_correcte: "B",
+    points: 10,
+    difficulte: "facile",
+    explication: "element.innerHTML permet de modifier le contenu HTML d'un élément."
+  }
+];
 
 interface Question {
   id: number;
@@ -82,14 +439,371 @@ const [examSubmitted, setExamSubmitted] = useState(false);
 const [examResult, setExamResult] = useState<any>(null);
 const [examAnswers, setExamAnswers] = useState<Record<number, string>>({});
 const [generatingExam, setGeneratingExam] = useState(false);
+const [selectedCategory, setSelectedCategory] = useState<string>('all');
+const navigate = useNavigate();
+const { setLearningContextValue } = useOutletContext<{ 
+    setLearningContextValue: (value: LearningContextType) => void 
+  }>();
 
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  
   const [searchTerm, setSearchTerm] = useState('');
 
 
   const filteredCourses = courses.filter(course =>
   course.titre.toLowerCase().includes(searchTerm.toLowerCase())
 );
+
+
+
+const getCourseCategories = () => {
+  return {
+    HTML: {
+      id: 'html',
+      icon: '📄',
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-200',
+      courses: [
+        { id: 6, title: 'Formatage du Texte en HTML' },
+        { id: 11, title: 'Les Liens Hypertextes en HTML' },
+        { id: 12, title: 'Images en HTML' },
+        { id: 8, title: 'Formulaires HTML Avancés' },
+        { id: 13, title: 'Les Tableaux en HTML' },
+        { id: 14, title: 'HTML Head - Métadonnées' },
+        { id: 15, title: 'HTML Multimédia' },
+        { id: 9, title: 'HTML5 Sémantique' },
+      ]
+    },
+    CSS: {
+      id: 'css',
+      icon: '🎨',
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-200',
+      courses: [
+        { id: 16, title: 'CSS Media Queries' },
+        { id: 17, title: 'CSS - Sélecteurs' },
+        { id: 18, title: 'CSS - Couleurs' },
+        { id: 19, title: 'CSS - Arrière-plans' },
+        { id: 20, title: 'CSS - Bordures' },
+        { id: 22, title: 'CSS - Marges' },
+        { id: 23, title: 'CSS - Padding' },
+        { id: 24, title: 'CSS - Texte' },
+        { id: 25, title: 'CSS - Polices' },
+        { id: 26, title: 'CSS - Liens' },
+        { id: 27, title: 'CSS - Listes' },
+        { id: 28, title: 'CSS - Tableaux' },
+        { id: 29, title: 'CSS - Display & Visibility' },
+        { id: 30, title: 'CSS - Positionnement' },
+        { id: 31, title: 'CSS - Overflow' },
+        { id: 32, title: 'CSS - Float' },
+        { id: 10, title: 'CSS Flexbox & Grid' },
+      ]
+    },
+    JavaScript: {
+      id: 'js',
+      icon: '🚀',
+      color: 'text-yellow-600',
+      bgColor: 'bg-yellow-50',
+      borderColor: 'border-yellow-200',
+      courses: [
+        { id: 33, title: 'JavaScript - Introduction' },
+        { id: 34, title: 'JavaScript - Variables' },
+        { id: 35, title: 'JavaScript - Types de Données' },
+        { id: 36, title: 'JavaScript - Opérateurs' },
+        { id: 37, title: 'JavaScript - Conditions' },
+        { id: 38, title: 'JavaScript - Boucles' },
+        { id: 39, title: 'JavaScript - Chaînes' },
+        { id: 40, title: 'JavaScript - Nombres' },
+        { id: 41, title: 'JavaScript - Fonctions' },
+        { id: 42, title: 'JavaScript - Objets' },
+        { id: 43, title: 'JavaScript - Tableaux' },
+        { id: 44, title: 'JavaScript - Sets' },
+        { id: 45, title: 'JavaScript - Maps' },
+        { id: 46, title: 'JavaScript - Math' },
+        { id: 47, title: 'JavaScript - Regex' },
+        { id: 48, title: 'JavaScript - Events' },
+      ]
+    }
+  };
+};
+
+const getFilteredCourses = () => {
+  const categories = getCourseCategories();
+  const allAudioCourseIds = new Set<number>();
+  
+  
+  Object.values(categories).forEach(cat => {
+    cat.courses.forEach(c => allAudioCourseIds.add(c.id));
+  });
+
+  if (selectedCategory === 'all') {
+    return courses.filter(c => allAudioCourseIds.has(c.id));
+  }
+
+  const categoryData = categories[selectedCategory as keyof typeof categories];
+  if (!categoryData) return [];
+  
+  const categoryIds = new Set(categoryData.courses.map(c => c.id));
+  return courses.filter(c => categoryIds.has(c.id));
+};
+
+
+const getCourseIcon = (courseId: number): string => {
+  const categories = getCourseCategories();
+  for (const cat of Object.values(categories)) {
+    for (const c of cat.courses) {
+      if (c.id === courseId) {
+        if (courseId === 6) return '📝';
+        if (courseId === 11) return '🔗';
+        if (courseId === 12) return '🖼️';
+        if (courseId === 8) return '📝';
+        if (courseId === 9) return '🏗️';
+        if (courseId === 10) return '🎨';
+        if (courseId >= 17 && courseId <= 32) return '🎨';
+        if (courseId >= 33 && courseId <= 48) return '🚀';
+        return '🎵';
+      }
+    }
+  }
+  return '🎵';
+};
+
+
+const getAudioFileForCourse = (courseId: number): string | null => {
+  const mapping: Record<number, string> = {
+    6: 'html_basics.mp3',
+    11: 'html_liens.mp3',
+    12: 'html_img.mp3',
+    8: 'html_formulaires.mp3',
+    9: 'html_semantique.mp3',
+    10: 'html_mise_en_page_flexBox_grid.mp3',
+    13: 'html_tableau.mp3',
+    14: 'html_head.mp3',
+    15: 'html_multimedia.mp3',
+    16: 'html_responsive_media.mp3',
+    17: 'html_css_selectors.mp3',
+    18: 'html_css_colors.mp3',
+    19: 'html_css_background.mp3',
+    20: 'html_css_border.mp3',
+    22: 'html_css_margin.mp3',
+    23: 'html_css_padding.mp3',
+    24: 'html_css_text.mp3',
+    25: 'html_css_fonts.mp3',
+    26: 'html_css_links.mp3',
+    27: 'html_css_lists.mp3',
+    28: 'html_css_tables.mp3',
+    29: 'html_css_display_visibility.mp3',
+    30: 'html_css_positioning.mp3',
+    31: 'html_css_overflow.mp3',
+    32: 'html_css_float.mp3',
+    33: 'html_js_introduction.mp3',
+    34: 'html_js_variables.mp3',
+    35: 'html_js_datatypes.mp3',
+    36: 'html_js_operators.mp3',
+    37: 'html_js_if_conditions.mp3',
+    38: 'html_js_loops.mp3',
+    39: 'html_js_strings_methods.mp3',
+    40: 'html_js_numbers_methods.mp3',
+    41: 'html_js_functions.mp3',
+    42: 'html_js_objects.mp3',
+    43: 'html_js_arrays.mp3',
+    44: 'html_js_sets.mp3',
+    45: 'html_js_maps.mp3',
+    46: 'html_js_math_objects.mp3',
+    47: 'html_js_regex.mp3',
+    48: 'html_js_events.mp3'
+  };
+  return mapping[courseId] || null;
+};
+
+const generateCertificate = async (examResultData: any, courseName: string) => {
+  if (!user) return;
+
+  try {
+    
+    const response = await api.post('/certificates/generate', {
+      user_id: user.id,
+      course_id: selectedCourse?.id,
+      score: examResultData.percentage,
+      course_name: 'Formation Complète HTML, CSS & JavaScript',  
+      mode: 'audio',
+      date: new Date().toISOString(),
+      is_global: true  
+    });
+
+    if (response.data && response.data.certificate_url) {
+      window.open(response.data.certificate_url, '_blank');
+      
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      toast.innerHTML = '🎓 Certificat global généré avec succès !';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 5000);
+    }
+  } catch (error) {
+    console.error('Erreur génération certificat:', error);
+    generateLocalCertificate(examResultData, 'Formation Complète HTML, CSS & JavaScript');
+  }
+};
+
+
+const generateLocalCertificate = (examResultData: any, courseName: string) => {
+  if (!user) return;
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  canvas.width = 1200;
+  canvas.height = 900;
+
+  
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  
+  ctx.strokeStyle = '#c9a84c';
+  ctx.lineWidth = 20;
+  ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
+
+  ctx.strokeStyle = '#d4b85a';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(60, 60, canvas.width - 120, canvas.height - 120);
+
+ 
+  ctx.fillStyle = '#1a1a2e';
+  ctx.font = 'bold 56px serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('🎓 CERTIFICAT DE RÉUSSITE', canvas.width / 2, 140);
+
+  
+  ctx.fillStyle = '#4a4a6a';
+  ctx.font = '28px sans-serif';
+  ctx.fillText('Formation Complète en Développement Web', canvas.width / 2, 200);
+
+  
+  ctx.beginPath();
+  ctx.moveTo(200, 225);
+  ctx.lineTo(1000, 225);
+  ctx.strokeStyle = '#c9a84c';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  
+  ctx.fillStyle = '#4a4a6a';
+  ctx.font = '22px sans-serif';
+  ctx.fillText('Ce certificat atteste que', canvas.width / 2, 270);
+
+  
+  ctx.fillStyle = '#c9a84c';
+  ctx.font = 'bold 52px serif';
+  ctx.fillText(`${user.prenom || ''} ${user.nom || ''}`.trim() || user.email, canvas.width / 2, 350);
+
+  
+  ctx.fillStyle = '#2d2d44';
+  ctx.font = '22px sans-serif';
+  ctx.fillText('a complété avec succès l\'ensemble des cours suivants :', canvas.width / 2, 420);
+
+  
+  const audioCourseIds = [6, 11, 12, 8, 9, 10, 13, 14, 15, 16, 17, 18, 19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48];
+  
+  const coursesCompleted = courses.filter(c => audioCourseIds.includes(c.id));
+
+  
+  ctx.fillStyle = '#1a1a2e';
+  ctx.font = '18px sans-serif';
+  ctx.textAlign = 'left';
+  
+  const maxCourses = Math.min(coursesCompleted.length, 8);
+  const coursesToShow = coursesCompleted.slice(0, maxCourses);
+  
+  
+  ctx.fillStyle = '#4a4a6a';
+  ctx.font = 'bold 20px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('📚 Modules validés :', canvas.width / 2, 480);
+  
+  
+  ctx.textAlign = 'left';
+  const startY = 510;
+  const col1X = 200;
+  const col2X = 600;
+  const rowHeight = 35;
+  
+  const half = Math.ceil(coursesToShow.length / 2);
+  const col1Courses = coursesToShow.slice(0, half);
+  const col2Courses = coursesToShow.slice(half);
+  
+  ctx.fillStyle = '#2d2d44';
+  ctx.font = '16px sans-serif';
+  
+  col1Courses.forEach((course, idx) => {
+    const displayTitle = course.titre.length > 35 ? course.titre.substring(0, 35) + '...' : course.titre;
+    ctx.fillText(`✅ ${displayTitle}`, col1X, startY + idx * rowHeight);
+  });
+  
+  col2Courses.forEach((course, idx) => {
+    const displayTitle = course.titre.length > 35 ? course.titre.substring(0, 35) + '...' : course.titre;
+    ctx.fillText(`✅ ${displayTitle}`, col2X, startY + idx * rowHeight);
+  });
+
+  
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#2d2d44';
+  ctx.font = '20px sans-serif';
+  ctx.fillText(`Score final : ${examResultData.percentage.toFixed(1)}%`, canvas.width / 2, 680);
+
+  
+  const date = new Date().toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+  ctx.fillStyle = '#4a4a6a';
+  ctx.font = '18px sans-serif';
+  ctx.fillText(`Délivré le ${date}`, canvas.width / 2, 730);
+
+  
+  ctx.beginPath();
+  ctx.moveTo(350, 770);
+  ctx.lineTo(550, 770);
+  ctx.strokeStyle = '#1a1a2e';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.fillStyle = '#4a4a6a';
+  ctx.font = '16px sans-serif';
+  ctx.fillText('Signature du responsable pédagogique', 450, 800);
+
+  
+  ctx.fillStyle = '#c9a84c';
+  ctx.font = '70px sans-serif';
+  ctx.fillText('🎓', canvas.width / 2, 860);
+
+  
+  const link = document.createElement('a');
+  link.download = `certificat_${user.prenom || 'utilisateur'}_${user.nom || ''}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+
+  const toast = document.createElement('div');
+  toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+  toast.innerHTML = '🎓 Certificat global généré avec succès !';
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 5000);
+};
+
+
+const handleCourseSelect = (course: Course) => {
+  const audioFile = getAudioFileForCourse(course.id);
+  if (audioFile) {
+    handleAudioFileChange(audioFile);
+  } else if (audioFiles.length > 0) {
+    handleAudioFileChange(audioFiles[0].name);
+  }
+  setSelectedCourse(course);
+};
 
 const saveMistakesToDB = async (userId: number, courseId: number, wrongQuestions: { question: string; questionId: number }[]) => {
   if (!userId || !courseId || wrongQuestions.length === 0) return;
@@ -110,9 +824,9 @@ const saveMistakesToDB = async (userId: number, courseId: number, wrongQuestions
     });
     
     await mistakeService.saveBatchMistakes(mistakesToSave);
-    console.log('✅ Erreurs sauvegardées en DB');
+    console.log(' Erreurs sauvegardées en DB');
   } catch (error) {
-    console.error('❌ Erreur sauvegarde DB:', error);
+    console.error(' Erreur sauvegarde DB:', error);
   }
 };
 
@@ -587,51 +1301,8 @@ const generateBertQuiz = async () => {
 };
 
 
-function getDefaultOptionsForQuestion(question: string): Record<string, string> {
-  if (!question || typeof question !== 'string') {
-    return { A: "Option A", B: "Option B", C: "Option C", D: "Option D" };
-  }
-  
-  
-  if (question.includes("modifier le contenu texte") || question.includes("innerHTML") || question.includes("JavaScript")) {
-    return {
-      A: "element.value = nouveauTexte",
-      B: "element.innerHTML = nouveauTexte",
-      C: "element.text = nouveauTexte",
-      D: "element.content = nouveauTexte"
-    };
-  }
-  
-  
-  if (question.includes("surligner")) {
-    return { A: "<mark>", B: "<highlight>", C: "<strong>", D: "<em>" };
-  }
-  if (question.includes("pliable") || question.includes("dépliable")) {
-    return { A: "<details> et <summary>", B: "<collapse> et <expand>", 
-             C: "<fold> et <unfold>", D: "<hide> et <show>" };
-  }
-  if (question.includes("sémantique")) {
-    return { A: "Meilleur SEO et accessibilité", B: "Chargement plus rapide",
-             C: "Design plus joli", D: "Compatibilité avec plus de navigateurs" };
-  }
-  if (question.includes("titre principal")) {
-    return { A: "<title>", B: "<h1>", C: "<head>", D: "<header>" };
-  }
-  if (question.includes("ligne dans un tableau")) {
-    return { A: "<td>", B: "<tr>", C: "</table>", D: "<th>" };
-  }
-  if (question.includes("sélecteur CSS") && question.includes("paragraphes")) {
-    return { A: "p", B: "#paragraph", C: ".paragraph", D: "<p>" };
-  }
-  if (question.includes("<main>")) {
-    return { A: "0 fois", B: "1 fois", C: "2 fois", D: "Autant qu'on veut" };
-  }
-  if (question.includes("taille du texte") || question.includes("propriete CSS")) {
-    return { A: "text-size", B: "font-size", C: "size", D: "text-scale" };
-  }
-  
-  return { A: "Option A", B: "Option B", C: "Option C", D: "Option D" };
-}
+
+
 
 const generateFinalExam = async () => {
   if (!selectedCourse) return;
@@ -646,65 +1317,27 @@ const generateFinalExam = async () => {
     
     const bertResponse = await bertQuizService.generateQuiz(
       String(selectedCourse.id), 
-      12
+      6
     );
     
     let examQuestionsList: Question[] = [];
     
+   
     if (bertResponse && bertResponse.questions && bertResponse.questions.length > 0) {
-      examQuestionsList = bertResponse.questions.map((q: any, idx: number) => {
-        let options = { A: "Option A", B: "Option B", C: "Option C", D: "Option D" };
-        let correctAnswer = q.correct_answer || 'A';
+      const bertQuestions = bertResponse.questions.map((q: any, idx: number) => {
         const questionText = q.question || '';
+        const options = getDefaultOptionsForQuestion(questionText);
+        let correctAnswer = determineCorrectAnswer(questionText);
         
-        
-        if (questionText.includes("surligner")) {
-          options = { A: "<mark>", B: "<highlight>", C: "<strong>", D: "<em>" };
-          correctAnswer = "A";
-        } else if (questionText.includes("pliable") || questionText.includes("dépliable")) {
-          options = { A: "<details> et <summary>", B: "<collapse> et <expand>", 
-                      C: "<fold> et <unfold>", D: "<hide> et <show>" };
-          correctAnswer = "A";
-        } else if (questionText.includes("sémantique")) {
-          options = { A: "Meilleur SEO et accessibilité", B: "Chargement plus rapide",
-                      C: "Design plus joli", D: "Compatibilité avec plus de navigateurs" };
-          correctAnswer = "A";
-        } else if (questionText.includes("modifier le contenu texte") || questionText.includes("innerHTML")) {
-          options = { A: "element.value = nouveauTexte", B: "element.innerHTML = nouveauTexte",
-                      C: "element.text = nouveauTexte", D: "element.content = nouveauTexte" };
-          correctAnswer = "B";
-        } else if (questionText.includes("titre principal")) {
-          options = { A: "<title>", B: "<h1>", C: "<head>", D: "<header>" };
-          correctAnswer = "B";
-        } else {
-          const defaultOpts = getDefaultOptionsForQuestion(questionText);
-          options = { A: defaultOpts.A, B: defaultOpts.B, C: defaultOpts.C, D: defaultOpts.D };
-        }
-        
-        
-        const cleanOptions: Record<string, string> = {};
-        const optionKeys = ['A', 'B', 'C', 'D'];
-        
-        for (let i = 0; i < optionKeys.length; i++) {
-          const key = optionKeys[i];
-          const value = options[key as keyof typeof options];
-          let cleanValue = String(value);
-          cleanValue = cleanValue.replace(/^['"]+/, '').replace(/['"]+$/, '');
-          cleanValue = cleanValue.replace(/''/g, "'");
-          cleanValue = cleanValue.trim();
-          
-          if (!cleanValue || cleanValue.length < 1 || cleanValue === ':' || cleanValue === 'B') {
-            const defaultValues = ["Première option", "Deuxième option", "Troisième option", "Quatrième option"];
-            cleanValue = defaultValues[i];
-          }
-          
-          cleanOptions[key] = cleanValue;
+        if (!options[correctAnswer] || 
+            ['Option A', 'Option B', 'Option C', 'Option D', 'Première option', 'Deuxième option'].includes(options[correctAnswer])) {
+          correctAnswer = 'A';
         }
         
         return {
-          id: idx + 1000,
-          question: q.question,
-          options: cleanOptions,
+          id: 2000 + idx,
+          question: questionText,
+          options: options,
           reponse_correcte: correctAnswer,
           points: q.points || 10,
           difficulte: q.difficulte || 'moyen',
@@ -712,79 +1345,111 @@ const generateFinalExam = async () => {
           score: q.score || 0
         };
       });
+      examQuestionsList.push(...bertQuestions);
     }
     
+   
+    examQuestionsList.push(...STATIC_EXAM_QUESTIONS);
     
-    if (examQuestionsList.length < 12) {
-      const defaultQs = getDefaultQuestionsForCourse(selectedCourse.id);
-      while (examQuestionsList.length < 12 && defaultQs.length > 0) {
-        const qToAdd = { ...defaultQs[examQuestionsList.length % defaultQs.length] };
-        qToAdd.id = 2000 + examQuestionsList.length;
-        examQuestionsList.push(qToAdd);
+   
+    const seenQuestions = new Set<string>();
+    const uniqueQuestions: Question[] = [];
+    
+    for (const q of examQuestionsList) {
+      
+      const normalizedText = q.question.trim().toLowerCase().replace(/\s+/g, ' ');
+      
+      
+      if (!seenQuestions.has(normalizedText)) {
+        seenQuestions.add(normalizedText);
+        uniqueQuestions.push(q);
+      } else {
+        console.log(`🔍 Question dupliquée ignorée: "${q.question}"`);
       }
     }
     
-    setExamQuestions(examQuestionsList.slice(0, 12));
+    console.log(`📊 Total avant déduplication: ${examQuestionsList.length}, après: ${uniqueQuestions.length}`);
+    
+   
+    const shuffledAll = uniqueQuestions.sort(() => Math.random() - 0.5);
+    
+    
+    const finalQuestions = shuffledAll.slice(0, 12);
+    
+    
+    const finalWithIds = finalQuestions.map((q, idx) => ({
+      ...q,
+      id: idx + 1
+    }));
+    
+    setExamQuestions(finalWithIds);
     
     const toast = document.createElement('div');
     toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-    toast.textContent = `✅ Examen généré! ${Math.min(12, examQuestionsList.length)} questions.`;
+    toast.textContent = `✅ Examen généré! ${finalWithIds.length} questions uniques (${uniqueQuestions.length} disponibles)`;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
     
   } catch (error) {
     console.error('Erreur génération examen:', error);
+    
+    
+    const shuffledStatic = [...STATIC_EXAM_QUESTIONS].sort(() => Math.random() - 0.5);
+    const fallbackQuestions = shuffledStatic.slice(0, 12).map((q, idx) => ({
+      ...q,
+      id: idx + 1
+    }));
+    
+    setExamQuestions(fallbackQuestions);
+    
     const toast = document.createElement('div');
     toast.className = 'fixed bottom-4 right-4 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
     toast.textContent = '⚠️ Utilisation des questions par défaut pour l\'examen';
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
-    
-    
-    if (questions.length > 0) {
-      const fallbackQuestions = [...questions];
-      while (fallbackQuestions.length < 12) {
-        fallbackQuestions.push({...fallbackQuestions[fallbackQuestions.length % fallbackQuestions.length]});
-      }
-      setExamQuestions(fallbackQuestions.slice(0, 12));
-    }
   } finally {
     setGeneratingExam(false);
   }
 };
-
 
 const submitExam = async () => {
   if (!selectedCourse || !isAuthenticated) {
     alert('Veuillez vous connecter');
     return;
   }
-  
+
+  if (!user?.id) {
+    alert('Utilisateur non identifié');
+    return;
+  }
+
   const answeredCount = Object.keys(examAnswers).length;
   if (answeredCount !== examQuestions.length) {
     alert(`Veuillez répondre à toutes les questions (${answeredCount}/${examQuestions.length})`);
     return;
   }
-  
+
   let totalScore = 0;
   let maxScore = 0;
   const answersList: any[] = [];
   const wrongQuestionsList: { question: string; questionId: number }[] = [];
 
+  console.log(`📝 Nombre de questions dans l'examen: ${examQuestions.length}`);
+
   for (const q of examQuestions) {
-    maxScore += q.points;
+    maxScore += q.points || 10;
     const userAnswer = examAnswers[q.id];
     const isCorrect = userAnswer === q.reponse_correcte;
     if (isCorrect) {
-      totalScore += q.points;
+      totalScore += q.points || 10;
     } else {
       wrongQuestionsList.push({
         question: q.question,
         questionId: q.id
       });
-      console.log('❌ Erreur examen:', q.question);
+      console.log(' Erreur examen:', q.question);
     }
-    
+
     answersList.push({
       questionId: q.id,
       questionText: q.question,
@@ -794,46 +1459,69 @@ const submitExam = async () => {
       explanation: q.explication || ''
     });
   }
-  
+
   const percentage = (totalScore / maxScore) * 100;
   const passed = percentage >= 70;
-  
+
+  console.log(`📊 Résultat: Score=${totalScore}/${maxScore}, Pourcentage=${percentage.toFixed(1)}%, Passé=${passed}`);
+
   setExamResult({ score: totalScore, total: maxScore, percentage, passed, answers: answersList });
   setExamSubmitted(true);
-  
-  
-  if (wrongQuestionsList.length > 0 && user?.id && selectedCourse?.id) {
-    await saveMistakesToDB(user.id, selectedCourse.id, wrongQuestionsList);
-    await loadMistakesFromDB(user.id, selectedCourse.id);
-    
-    
-    const wrongQuestionTexts = wrongQuestionsList.map(w => w.question);
-    await analyzeMistakesAndRecommend(wrongQuestionTexts);
-  }
-  
+
   try {
-    await api.post('/results', {
-      utilisateur_id: user?.id,
-      cours_id: selectedCourse.id,
-      mode: 'audio_exam',
-      score_quiz: percentage,
-      temps_passe: Math.floor(currentTime),
-      taux_completion: progress,
+   
+    const resultData = {
+      utilisateur_id: user.id,
+      cours_id: Number(selectedCourse.id),
+      mode: 'audio',
+      score_quiz: Number(percentage.toFixed(2)),
+      temps_passe: Math.max(1, Math.floor(currentTime) || 1),
+      taux_completion: Number((duration > 0 ? (currentTime / duration) * 100 : 100).toFixed(2)),
       est_reussi: passed,
-      feedback: passed ? `Examen réussi! Score: ${percentage.toFixed(1)}%` : `Score: ${percentage.toFixed(1)}%`
-    });
-    
-    let examMessage = `📝 Examen terminé!\nScore: ${percentage.toFixed(1)}%\n${passed ? '✅ Félicitations!' : '📚 Continuez à pratiquer!'}`;
-    if (wrongQuestionsList.length > 0) {
-      examMessage += `\n\n🤖 Tuteur IA: ${wrongQuestionsList.length} erreur(s) analysée(s).\nDes cours de révision vous sont recommandés.`;
+      feedback: passed 
+        ? `Examen réussi! Score: ${percentage.toFixed(1)}%` 
+        : `Score: ${percentage.toFixed(1)}%`
+    };
+
+    console.log(' Envoi des données au backend:', JSON.stringify(resultData, null, 2));
+
+    const response = await api.post('/results', resultData);
+    console.log(' Résultat enregistré:', response.data);
+
+    if (wrongQuestionsList.length > 0 && user?.id && selectedCourse?.id) {
+      await saveMistakesToDB(user.id, selectedCourse.id, wrongQuestionsList);
+      await loadMistakesFromDB(user.id, selectedCourse.id);
+      
+      const wrongQuestionTexts = wrongQuestionsList.map(w => w.question);
+      await analyzeMistakesAndRecommend(wrongQuestionTexts);
     }
-    alert(examMessage);
-  } catch (error) {
-    console.error('Erreur sauvegarde examen:', error);
-    alert('Erreur lors de l\'enregistrement de l\'examen. Veuillez réessayer.');
+    setShowRecommendations(true);
+
+    if (passed) {
+      setTimeout(() => {
+        const confirmGenerate = window.confirm(
+          `🎓 Félicitations ! Vous avez réussi l'examen avec ${percentage.toFixed(1)}%.\n\nSouhaitez-vous générer votre certificat de réussite ?`
+        );
+        if (confirmGenerate) {
+          generateCertificate({ percentage, passed }, selectedCourse.titre);
+        }
+      }, 1500);
+    }
+  } catch (error: any) {
+    console.error(' Erreur:', error);
+    console.error(' Response:', error.response?.data);
+    console.error(' Status:', error.response?.status);
+
+    if (error.response?.data?.detail) {
+      const detail = typeof error.response.data.detail === 'string' 
+        ? error.response.data.detail 
+        : JSON.stringify(error.response.data.detail);
+      alert(`Erreur: ${detail}`);
+    } else {
+      alert('Erreur lors de l\'enregistrement de l\'examen. Veuillez réessayer.');
+    }
   }
 };
-
 
 
 
@@ -847,7 +1535,48 @@ const cancelExam = () => {
 };
   
 
-  
+const updateLearningContext = useCallback(() => {
+  if (setLearningContextValue) {
+    setLearningContextValue({
+      generatePersonalizedQuiz: generatePersonalizedQuiz,
+      showTutorRecommendations: () => {
+        if (mistakeQuestions.length > 0) {
+          analyzeMistakesAndRecommend(mistakeQuestions);
+        } else {
+          alert('Aucune erreur enregistrée pour ce cours');
+        }
+      },
+      showMistakeStats: showMistakeStats,
+      generateBertQuiz: generateBertQuiz,
+      generateExam: generateFinalExam,  
+      cancelExam: cancelExam,
+      isExamMode: examMode,
+      hasMistakes: mistakeQuestions.length > 0,
+      isGeneratingQuiz: generatingQuiz,
+      isGeneratingExam: generatingExam,
+      selectedCourseId: selectedCourse?.id
+    });
+  }
+}, [
+  selectedCourse,
+  mistakeQuestions,
+  examMode,
+  generatingQuiz,
+  generatingExam,
+  setLearningContextValue,
+  generatePersonalizedQuiz,
+  analyzeMistakesAndRecommend,
+  showMistakeStats,
+  generateBertQuiz,
+  generateFinalExam,
+  cancelExam
+]);
+
+
+useEffect(() => {
+  updateLearningContext();
+}, [updateLearningContext]);  
+
   const getAudioContentForCourse = useCallback((course: Course, audioFileName: string): AudioContent => {
     
     const contentMap: Record<number, Partial<AudioContent>> = {
@@ -6111,7 +6840,7 @@ useEffect(() => {
         question: q.question, 
         questionId: q.id 
       });
-      console.log('❌ Erreur enregistrée:', q.question);
+      console.log(' Erreur enregistrée:', q.question);
     }
     
     responses.push({
@@ -6122,7 +6851,7 @@ useEffect(() => {
     });
   }
 
-  console.log('📝 Total des erreurs:', wrongQuestionsList.length);
+  console.log(' Total des erreurs:', wrongQuestionsList.length);
 
   
   if (wrongQuestionsList.length > 0) {
@@ -6179,7 +6908,7 @@ useEffect(() => {
     }
     alert(successMessage);
   } catch (error: any) {
-    console.error('❌ Erreur:', error);
+    console.error(' Erreur:', error);
     alert(`Erreur: ${error.response?.data?.detail || 'Erreur inconnue'}`);
   }
 };
@@ -6212,217 +6941,14 @@ useEffect(() => {
     audioFile: currentAudioFile
   };
 
-  return (
-  <div className="flex min-h-screen bg-gray-100">
-    
-    <aside 
-      className={`fixed left-0 top-0 h-full bg-white shadow-xl z-30 transition-all duration-300 ${
-        sidebarOpen ? 'w-80' : 'w-16'
-      } overflow-y-auto`}
-    >
-      
-      <div className="sticky top-0 bg-white border-b p-4">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg hover:bg-gray-100 transition"
-          >
-            {sidebarOpen ? '◀' : '▶'}
-          </button>
-          {sidebarOpen && <h2 className="text-lg font-bold text-gray-800">🎵 Cours audio</h2>}
-        </div>
-      </div>
-
-      {sidebarOpen && (
-        <div className="p-5">
-          
-          <div className="mb-4">
-            <input
-              type="text"
-              placeholder="🔍 Rechercher un cours..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 text-sm"
-            />
-          </div>
-
-          
-          <nav className="space-y-1 max-h-[calc(100vh-200px)] overflow-y-auto">
-            {filteredCourses.map((course) => {
-              const audioFile = audioFiles.find(f => 
-                f.name.includes(course.titre.toLowerCase().replace(/ /g, '_')) || 
-                (course.id === 6 && f.name === 'html_basics.mp3') ||
-                (course.id === 11 && f.name === 'html_liens.mp3') ||
-                (course.id === 12 && f.name === 'html_img.mp3') ||
-                (course.id === 8 && f.name === 'html_formulaires.mp3') ||
-                (course.id === 9 && f.name === 'html_semantique.mp3') ||
-                (course.id === 10 && f.name === 'html_mise_en_page_flexBox_grid.mp3') ||
-                (course.id === 13 && f.name === 'html_tableau.mp3') ||
-                (course.id === 14 && f.name === 'html_head.mp3') ||
-                (course.id === 15 && f.name === 'html_multimedia.mp3') ||
-                (course.id === 16 && f.name === 'html_responsive_media.mp3') ||
-                (course.id === 17 && f.name === 'html_css_selectors.mp3') ||
-                (course.id === 18 && f.name === 'html_css_colors.mp3') ||
-                (course.id === 19 && f.name === 'html_css_background.mp3') ||
-                (course.id === 20 && f.name === 'html_css_border.mp3') ||
-                (course.id === 22 && f.name === 'html_css_margin.mp3') ||
-                (course.id === 23 && f.name === 'html_css_padding.mp3') ||
-                (course.id === 24 && f.name === 'html_css_text.mp3') ||
-                (course.id === 25 && f.name === 'html_css_fonts.mp3') ||
-                (course.id === 26 && f.name === 'html_css_links.mp3') ||
-                (course.id === 27 && f.name === 'html_css_lists.mp3') ||
-                (course.id === 28 && f.name === 'html_css_tables.mp3') ||
-                (course.id === 29 && f.name === 'html_css_display_visibility.mp3') ||
-                (course.id === 30 && f.name === 'html_css_positioning.mp3') ||
-                (course.id === 31 && f.name === 'html_css_overflow.mp3') ||
-                (course.id === 32 && f.name === 'html_css_float.mp3') ||
-                (course.id === 33 && f.name === 'html_js_introduction.mp3') ||
-                (course.id === 34 && f.name === 'html_js_variables.mp3') ||
-                (course.id === 35 && f.name === 'html_js_datatypes.mp3') ||
-                (course.id === 36 && f.name === 'html_js_operators.mp3') ||
-                (course.id === 37 && f.name === 'html_js_if_conditions.mp3') ||
-                (course.id === 38 && f.name === 'html_js_loops.mp3') ||
-                (course.id === 39 && f.name === 'html_js_strings_methods.mp3') ||
-                (course.id === 40 && f.name === 'html_js_numbers_methods.mp3') ||
-                (course.id === 41 && f.name === 'html_js_functions.mp3') ||
-                (course.id === 42 && f.name === 'html_js_objects.mp3') ||
-                (course.id === 43 && f.name === 'html_js_arrays.mp3') ||
-                (course.id === 44 && f.name === 'html_js_sets.mp3') ||
-                (course.id === 45 && f.name === 'html_js_maps.mp3') ||
-                (course.id === 46 && f.name === 'html_js_math_objects.mp3') ||
-                (course.id === 47 && f.name === 'html_js_regex.mp3') ||
-                (course.id === 48 && f.name === 'html_js_events.mp3')
-              );
-              
-              const isSelected = selectedCourse?.id === course.id;
-              let courseIcon = '🎵';
-              if (course.id === 6) courseIcon = '📝';
-              else if (course.id === 11) courseIcon = '🔗';
-              else if (course.id === 12) courseIcon = '🖼️';
-              else if (course.id === 8) courseIcon = '📝';
-              else if (course.id === 9) courseIcon = '🏗️';
-              else if (course.id === 10) courseIcon = '🎨';
-              else if (course.id >= 17 && course.id <= 32) courseIcon = '🎨';
-              else if (course.id >= 33 && course.id <= 48) courseIcon = '🚀';
-              
-              return (
-                <button
-                  key={course.id}
-                  onClick={() => {
-                    if (audioFile) {
-                      handleAudioFileChange(audioFile.name);
-                    } else if (audioFiles.length > 0) {
-                      handleAudioFileChange(audioFiles[0].name);
-                    }
-                    setSelectedCourse(course);
-                  }}
-                  className={`w-full text-left p-3 rounded-lg transition-all duration-200 ${
-                    isSelected 
-                      ? 'bg-green-50 border-l-4 border-green-500 text-green-700' 
-                      : 'hover:bg-gray-50 text-gray-700'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl">{courseIcon}</span>
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{course.titre}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {course.difficulte || 'Débutant'} • {course.duree || 15} min
-                      </p>
-                    </div>
-                    {isSelected && <span className="text-green-500 text-xs">▶</span>}
-                  </div>
-                </button>
-              );
-            })}
-          </nav>
-
-          
-          <div className="mt-6 pt-4 border-t border-gray-100 space-y-2">
-            <button
-              onClick={generatePersonalizedQuiz}
-              disabled={generatingQuiz || !selectedCourse}
-              className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 text-sm"
-            >
-              {generatingQuiz ? '⏳ Génération...' : '🎯 Quiz Personnalisé'}
-            </button>
-            <button
-              onClick={generateBertQuiz}
-              disabled={generatingQuiz || !selectedCourse}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 text-sm"
-            >
-              {generatingQuiz ? '⏳ Génération...' : '🤖 Quiz IA'}
-            </button>
-            {!examMode ? (
-    <button
-      onClick={generateFinalExam}
-      disabled={generatingExam || !selectedCourse}
-      className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 text-sm mt-2"
-    >
-      {generatingExam ? '⏳ Génération...' : '📝 Examen Final IA'}
-    </button>
-  ) : (
-    <button
-      onClick={cancelExam}
-      className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition text-sm mt-2"
-    >
-      ❌ Annuler l'examen
-    </button>
-  )}
-
-   
-  <button
-    onClick={async () => {
-      if (mistakeQuestions.length > 0) {
-        await analyzeMistakesAndRecommend(mistakeQuestions);
-      } else {
-        alert('Aucune erreur enregistrée pour ce cours');
-      }
-    }}
-    disabled={mistakeQuestions.length === 0}
-    className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 text-sm mt-2"
-  >
-    🤖 Tuteur IA - Recommandations
-  </button>
-
-
-  <button
-  onClick={showMistakeStats}
-  className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm mt-2"
->
-  📊 Voir mes statistiques d'erreurs
-</button>
-
-            {mistakeQuestions.length > 0 && (
-              <div className="text-center text-xs text-orange-600 bg-orange-50 p-2 rounded-lg mt-2">
-                📝 {mistakeQuestions.length} erreur(s) enregistrée(s)
-              </div>
-              
-            )}
-            {quizGenerationMode === 'personalized' && (
-              <div className="text-center text-xs text-green-600 bg-green-50 p-2 rounded-lg">
-                🎯 Mode personnalisé
-              </div>
-            )}
-            {quizGenerationMode === 'bert' && (
-              <div className="text-center text-xs text-blue-600 bg-blue-50 p-2 rounded-lg">
-                🤖 Mode IA
-              </div>
-            )}
-          </div>
-        </div>
-        
-      )}
-
-     
-    </aside>
-
-   <main className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'ml-80' : 'ml-16'}`}>
+ return (
+  <div className="min-h-screen bg-gray-100">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       
       
       {examMode ? (
-        <div className="max-w-4xl mx-auto py-8 px-6 space-y-8">
-          
+        <div className="max-w-4xl mx-auto space-y-8">
+         
           <div className="bg-gradient-to-r from-indigo-500 to-indigo-700 rounded-2xl p-6 text-white">
             <div className="flex justify-between items-center">
               <div>
@@ -6440,119 +6966,244 @@ useEffect(() => {
 
           
           {generatingExam ? (
-            <div className="bg-white rounded-xl shadow-md p-12 text-center">
-              <div className="text-5xl mb-4">⏳</div>
-              <div className="inline-block w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4" />
-              <p className="text-gray-600">Génération de votre examen personnalisé...</p>
-            </div>
-          ) : examSubmitted && examResult ? (
-            
-            <div className="space-y-6">
-              <div className="bg-white rounded-xl shadow-md p-8 text-center">
-                <div className="text-6xl mb-4">{examResult.passed ? '🎓' : '📚'}</div>
-                <h2 className="text-2xl font-bold mb-2">Résultat de l'examen</h2>
-                <p className="text-5xl font-bold text-purple-600 mb-2">{examResult.percentage.toFixed(1)}%</p>
-                <p className="mb-4">
-                  {examResult.passed 
-                    ? '✅ Félicitations ! Vous avez réussi l\'examen.' 
-                    : '⚠️ Vous n\'avez pas atteint le seuil de réussite (70%).'}
-                </p>
-                <p className="text-gray-500">Score: {examResult.score} / {examResult.total} points</p>
-              </div>
+  <div className="bg-white rounded-xl shadow-md p-12 text-center">
+    <div className="text-5xl mb-4">⏳</div>
+    <div className="inline-block w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4" />
+    <p className="text-gray-600">Génération de votre examen personnalisé...</p>
+  </div>
+) : examSubmitted && examResult ? (
+ 
+  <div className="space-y-6">
+    
+    <div className={`rounded-xl shadow-md p-8 text-center ${
+      examResult.passed 
+        ? 'bg-gradient-to-r from-green-500 to-green-700 text-white' 
+        : 'bg-gradient-to-r from-red-500 to-red-700 text-white'
+    }`}>
+      <div className="text-7xl mb-4">{examResult.passed ? '🎓' : '📚'}</div>
+      <h2 className="text-3xl font-bold mb-2">
+        {examResult.passed ? 'Félicitations !' : 'Continuez à vous entraîner !'}
+      </h2>
+      <p className="text-6xl font-bold mb-2">{examResult.percentage.toFixed(1)}%</p>
+      <p className="text-lg opacity-90">
+        {examResult.passed 
+          ? '✅ Vous avez réussi l\'examen avec succès !' 
+          : '⚠️ Vous n\'avez pas atteint le seuil de réussite (70%).'}
+      </p>
+      <p className="text-sm opacity-75 mt-2">
+        Score: {examResult.score} / {examResult.total} points
+      </p>
+    </div>
 
-              {examResult.answers.filter((a: any) => !a.isCorrect).length > 0 && (
-                <div className="bg-yellow-50 rounded-xl shadow-md p-6">
-                  <h3 className="text-xl font-bold text-yellow-800 mb-4">
-                    📊 Analyse des erreurs ({examResult.answers.filter((a: any) => !a.isCorrect).length})
-                  </h3>
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {examResult.answers.filter((a: any) => !a.isCorrect).map((answer: any, idx: number) => (
-                      <div key={idx} className="border-b border-yellow-200 pb-3">
-                        <p className="font-semibold">❌ {answer.questionText}</p>
-                        <p className="text-sm">Votre réponse: <span className="font-mono">{answer.selectedAnswer}</span></p>
-                        <p className="text-sm">Bonne réponse: <span className="font-mono text-green-600">{answer.correctAnswer}</span></p>
-                        {answer.explanation && (
-                          <p className="text-xs text-gray-600 mt-1">💡 {answer.explanation}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+   
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="bg-white rounded-xl shadow-md p-4 text-center">
+        <div className="text-3xl font-bold text-green-600">
+          {examResult.answers.filter((a: any) => a.isCorrect).length}
+        </div>
+        <div className="text-sm text-gray-500">✅ Réponses correctes</div>
+        <div className="text-xs text-gray-400">
+          ({examResult.answers.filter((a: any) => a.isCorrect).length} / {examResult.answers.length} questions)
+        </div>
+      </div>
+      <div className="bg-white rounded-xl shadow-md p-4 text-center">
+        <div className="text-3xl font-bold text-red-600">
+          {examResult.answers.filter((a: any) => !a.isCorrect).length}
+        </div>
+        <div className="text-sm text-gray-500">❌ Réponses incorrectes</div>
+        <div className="text-xs text-gray-400">
+          ({examResult.answers.filter((a: any) => !a.isCorrect).length} / {examResult.answers.length} questions)
+        </div>
+      </div>
+      <div className="bg-white rounded-xl shadow-md p-4 text-center">
+        <div className="text-3xl font-bold text-purple-600">
+          {examResult.answers.length}
+        </div>
+        <div className="text-sm text-gray-500">📝 Total questions</div>
+        <div className="text-xs text-gray-400">
+          ({examResult.total} points au total)
+        </div>
+      </div>
+    </div>
+
+    
+    {examResult.answers.filter((a: any) => !a.isCorrect).length > 0 && (
+      <div className="bg-yellow-50 rounded-xl shadow-md p-6">
+        <h3 className="text-xl font-bold text-yellow-800 mb-4 flex items-center gap-2">
+          <span>📊</span> Analyse des erreurs 
+          <span className="text-sm font-normal bg-yellow-200 px-3 py-1 rounded-full">
+            {examResult.answers.filter((a: any) => !a.isCorrect).length} erreur(s)
+          </span>
+        </h3>
+        <div className="space-y-3 max-h-80 overflow-y-auto">
+          {examResult.answers.filter((a: any) => !a.isCorrect).map((answer: any, idx: number) => (
+            <div key={idx} className="bg-white rounded-lg p-4 border border-yellow-200 hover:shadow-md transition">
+              <p className="font-semibold text-gray-800">❌ {answer.questionText}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                <div className="bg-red-50 p-2 rounded">
+                  <span className="text-xs text-gray-500">Votre réponse</span>
+                  <p className="font-mono text-red-600">{answer.selectedAnswer || 'Non répondue'}</p>
                 </div>
-              )}
-
-              <div className="flex gap-3">
-                <button
-                  onClick={cancelExam}
-                  className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition"
-                >
-                  🔄 Retour à l'apprentissage
-                </button>
-                <button
-                  onClick={() => {
-                    setExamSubmitted(false);
-                    setExamResult(null);
-                    setExamAnswers({});
-                    generateFinalExam();
-                  }}
-                  className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition"
-                >
-                  🔁 Recommencer l'examen
-                </button>
+                <div className="bg-green-50 p-2 rounded">
+                  <span className="text-xs text-gray-500">Bonne réponse</span>
+                  <p className="font-mono text-green-600">{answer.correctAnswer}</p>
+                </div>
               </div>
-            </div>
-          ) : (
-            
-            <div className="bg-white rounded-xl shadow-md p-8">
-              <div className="mb-6 pb-4 border-b">
-                <p className="text-gray-600">L'examen contient <strong>{examQuestions.length}</strong> questions</p>
-                <p className="text-sm text-gray-500 mt-1">Score minimum requis: <strong className="text-purple-600">70%</strong></p>
-              </div>
-              
-              <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
-                {examQuestions.map((q, idx) => (
-                  <div key={q.id} className="border rounded-lg p-4 hover:shadow-md transition">
-                    <p className="font-semibold mb-3">
-                      Question {idx + 1} <span className="text-sm text-gray-500">({q.points} points - {q.difficulte})</span>
-                    </p>
-                    <p className="mb-4">{q.question}</p>
-                    <div className="space-y-2 ml-4">
-                      {Object.entries(q.options).map(([key, value]) => (
-                        <label key={key} className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded">
-                          <input
-                            type="radio"
-                            name={`exam_question_${q.id}`}
-                            value={key}
-                            checked={examAnswers[q.id] === key}
-                            onChange={() => setExamAnswers(prev => ({ ...prev, [q.id]: key }))}
-                            className="w-4 h-4 text-purple-600"
-                          />
-                          <span className="text-sm">{key}: {value}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              <button
-                onClick={submitExam}
-                disabled={Object.keys(examAnswers).length !== examQuestions.length}
-                className="w-full mt-6 px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition disabled:opacity-50"
-              >
-                📤 Soumettre l'examen
-              </button>
-              
-              {Object.keys(examAnswers).length !== examQuestions.length && (
-                <p className="text-sm text-yellow-600 mt-3 text-center">
-                  ⚠️ {Object.keys(examAnswers).length}/{examQuestions.length} questions répondues
+              {answer.explanation && (
+                <p className="text-sm text-gray-600 mt-2 bg-blue-50 p-2 rounded">
+                  💡 {answer.explanation}
                 </p>
               )}
             </div>
-          )}
+          ))}
+        </div>
+      </div>
+    )}
+
+    
+    <div className="flex flex-col sm:flex-row gap-3">
+      <button
+        onClick={cancelExam}
+        className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition"
+      >
+        🔄 Retour à l'apprentissage
+      </button>
+      <button
+        onClick={() => {
+          setExamSubmitted(false);
+          setExamResult(null);
+          setExamAnswers({});
+          generateFinalExam();
+        }}
+        className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition"
+      >
+        🔁 Recommencer l'examen
+      </button>
+    </div>
+
+    
+    {examResult.passed && (
+      <div className="mt-4 p-4 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl border-2 border-yellow-300">
+        <p className="text-center text-sm text-gray-600 mb-3">
+          🎉 Félicitations ! Vous avez réussi l'examen. Vous pouvez maintenant générer votre certificat.
+        </p>
+        <button
+          onClick={() => generateCertificate(examResult, selectedCourse?.titre || 'Cours')}
+          className="w-full px-6 py-4 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 text-white rounded-lg font-bold hover:from-yellow-500 hover:via-yellow-600 hover:to-yellow-700 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-3 text-lg"
+        >
+          <span className="text-3xl animate-bounce">🎓</span>
+          Générer mon certificat de réussite
+          <span className="text-sm opacity-80">📄</span>
+        </button>
+        <p className="text-xs text-gray-500 text-center mt-2">
+          Votre certificat sera téléchargé au format PNG
+        </p>
+      </div>
+    )}
+  </div>
+) : (
+  
+  <div className="bg-white rounded-xl shadow-md p-6 sm:p-8">
+    
+    <div className="mb-6 pb-4 border-b">
+      <div className="flex justify-between items-center">
+        <div>
+          <p className="text-gray-600">L'examen contient <strong>{examQuestions.length}</strong> questions</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Score minimum requis: <strong className="text-purple-600">70%</strong>
+          </p>
+        </div>
+        <div className="text-right">
+          <span className="text-sm text-gray-500">Progression</span>
+          <p className="text-lg font-bold text-purple-600">
+            {Object.keys(examAnswers).length} / {examQuestions.length}
+          </p>
+        </div>
+      </div>
+      
+      <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
+        <div 
+          className="bg-purple-600 h-2 rounded-full transition-all duration-500"
+          style={{ width: `${(Object.keys(examAnswers).length / examQuestions.length) * 100}%` }}
+        />
+      </div>
+    </div>
+    
+    
+    <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
+      {examQuestions.map((q, idx) => (
+        <div 
+          key={q.id} 
+          className={`border rounded-lg p-4 transition-all duration-300 ${
+            examAnswers[q.id] 
+              ? 'border-purple-300 bg-purple-50' 
+              : 'border-gray-200 hover:border-purple-200 hover:shadow-md'
+          }`}
+        >
+          <div className="flex justify-between items-start mb-3">
+            <p className="font-semibold text-gray-800">
+              Question {idx + 1}
+            </p>
+            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+              {q.points} points • {q.difficulte}
+            </span>
+          </div>
+          <p className="mb-4 text-gray-700">{q.question}</p>
+          <div className="space-y-2">
+            {Object.entries(q.options).map(([key, value]) => (
+              <label 
+                key={key} 
+                className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                  examAnswers[q.id] === key
+                    ? 'bg-purple-100 border-2 border-purple-500'
+                    : 'hover:bg-gray-50 border-2 border-transparent'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name={`exam_question_${q.id}`}
+                  value={key}
+                  checked={examAnswers[q.id] === key}
+                  onChange={() => setExamAnswers(prev => ({ ...prev, [q.id]: key }))}
+                  className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                />
+                <span className="text-sm font-medium">
+                  <span className="font-bold text-purple-600">{key}.</span> {value}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+    
+    
+    <button
+      onClick={submitExam}
+      disabled={Object.keys(examAnswers).length !== examQuestions.length}
+      className={`w-full mt-6 px-6 py-4 rounded-lg font-semibold transition-all duration-300 ${
+        Object.keys(examAnswers).length === examQuestions.length
+          ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800 shadow-lg hover:shadow-xl'
+          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+      }`}
+    >
+      {Object.keys(examAnswers).length === examQuestions.length 
+        ? '📤 Soumettre l\'examen' 
+        : `📝 ${Object.keys(examAnswers).length}/${examQuestions.length} questions répondues`}
+    </button>
+    
+    {Object.keys(examAnswers).length !== examQuestions.length && (
+      <p className="text-sm text-yellow-600 mt-3 text-center">
+        ⚠️ Veuillez répondre à toutes les questions avant de soumettre
+      </p>
+    )}
+  </div>
+)}
         </div>
       ) : (
         
-        <div className="max-w-6xl mx-auto py-8 px-6 space-y-8">
+        <div className="space-y-8">
+          
           
           <div className="bg-gradient-to-r from-green-500 to-green-700 rounded-2xl p-6 text-white">
             <h1 className="text-3xl font-bold mb-2">🔊 Apprentissage par Audio</h1>
@@ -6560,77 +7211,93 @@ useEffect(() => {
           </div>
 
           
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">🎵 Sélectionner une leçon audio</label>
-            <select
-              value={currentAudioFile}
-              onChange={(e) => handleAudioFileChange(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-            >
-              {audioFiles.map(audio => {
-                const nameMapping: Record<string, string> = {
-                  'html_basics': '📖 Formatage du Texte en HTML',
-                  'html_liens': '🔗 Les Liens Hypertextes en HTML',
-                  'html_img': '🖼️ Images en HTML',
-                  'html_formulaires': '📝 Formulaires HTML Avancés',
-                  'html_semantique': '🏗️ HTML5 Sémantique - Structures Modernes',
-                  'html_mise_en_page_flexBox_grid': '🎨 CSS - Flexbox & Grid (Mise en Page Avancée)',
-                  'html_tableau': '📊 Les Tableaux en HTML',
-                  'html_head': '🧩 HTML Head - Métadonnées & SEO',
-                  'html_multimedia': '🎬 HTML Multimédia - Vidéo & Audio',
-                  'html_responsive_media': '📱 CSS Media Queries - Responsive Design',
-                  'html_css_selectors': '🎯 CSS - Sélecteurs Simples (Element, ID, Class)',
-                  'html_css_colors': '🎨 CSS - Couleurs (Noms, HEX, RGB, HSL)',
-                  'html_css_background': '🖼️ CSS - Images d\'Arrière-plan (Background)',
-                  'html_css_border': '🖼️ CSS - Bordures (Border)',
-                  'html_css_margin': '📐 CSS - Marges (Margin)',
-                  'html_css_padding': '📦 CSS - Padding (Remplissage)',
-                  'html_css_text': '📝 CSS - Propriétés du Texte (Text)',
-                  'html_css_fonts': '🔤 CSS - Propriétés des Polices (Font)',
-                  'html_css_links': '🔗 CSS - Styliser les Liens (Links)',
-                  'html_css_lists': '📋 CSS - Styliser les Listes (Lists)',
-                  'html_css_tables': '📊 CSS - Styliser les Tableaux (Tables)',
-                  'html_css_display_visibility': '👁️ CSS - Display & Visibility',
-                  'html_css_positioning': '📍 CSS - Positionnement (Positioning)',
-                  'html_css_overflow': '📦 CSS - Overflow (Dépassement)',
-                  'html_css_float': '🌊 CSS - Float (Flottement)',
-                  'html_js_introduction': '🚀 JavaScript - Introduction',
-                  'html_js_variables': '📦 JavaScript - Variables',
-                  'html_js_datatypes': '🔢 JavaScript - Types de Données',
-                  'html_js_operators': '➕ JavaScript - Opérateurs',
-                  'html_js_if_conditions': '🤔 JavaScript - Conditions (If/Else)',
-                  'html_js_loops': '🔄 JavaScript - Boucles (Loops)',
-                  'html_js_strings_methods': '📝 JavaScript - Chaînes (Strings)',
-                  'html_js_numbers_methods': '🔢 JavaScript - Nombres (Numbers)',
-                  'html_js_functions': '🎯 JavaScript - Fonctions (Functions)',
-                  'html_js_objects': '🧍 JavaScript - Objets (Objects)',
-                  'html_js_arrays': '🗃️ JavaScript - Tableaux (Arrays)',
-                  'html_js_sets': '🔢 JavaScript - Sets (Ensembles)',
-                  'html_js_maps': '🗺️ JavaScript - Maps (Dictionnaires)',
-                  'html_js_math_objects': '🧮 JavaScript - Math (Objets Mathématiques)',
-                  'html_js_regex': '🔍 JavaScript - Regex (Expressions Régulières)',
-                  'html_js_events': '🎯 JavaScript - Events (Handlers vs Listeners)'
-                };
-                
-                const displayName = nameMapping[audio.name.replace('.mp3', '')] || audio.name.replace('.mp3', '').replace(/_/g, ' ');
-                
-                return <option key={audio.name} value={audio.name}>{displayName}</option>;
-              })}
-            </select>
+          <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+            <h3 className="text-sm font-semibold text-gray-500 mb-3">📚 Sélectionner un cours audio</h3>
             
-            {selectedCourse && (
-              <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                <h2 className="text-xl font-bold text-gray-800">{displayContent.title}</h2>
-                <p className="text-gray-600 mt-1">{displayContent.description}</p>
-                <div className="flex gap-4 mt-2">
-                  <span className="text-sm text-gray-500">📊 Niveau: {selectedCourse.difficulte || 'Débutant'}</span>
-                  <span className="text-sm text-gray-500">🎵 Fichier: {currentAudioFile}</span>
-                </div>
+           
+            <div className="flex flex-wrap gap-2 mb-4">
+              <button
+                onClick={() => setSelectedCategory('all')}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
+                  selectedCategory === 'all'
+                    ? 'bg-gray-800 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                📚 Tous
+              </button>
+              {Object.entries(getCourseCategories()).map(([key, cat]) => (
+                <button
+                  key={key}
+                  onClick={() => setSelectedCategory(key)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
+                    selectedCategory === key
+                      ? `${cat.bgColor} ${cat.color} ring-2 ring-offset-1`
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {cat.icon} {key}
+                </button>
+              ))}
+            </div>
+
+           
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-[300px] overflow-y-auto p-2">
+              {getFilteredCourses().map((course) => {
+                const isSelected = selectedCourse?.id === course.id;
+                const icon = getCourseIcon(course.id);
+                
+                let categoryColor = 'text-gray-600';
+                const categories = getCourseCategories();
+                for (const [key, cat] of Object.entries(categories)) {
+                  if (cat.courses.some(c => c.id === course.id)) {
+                    categoryColor = cat.color;
+                    break;
+                  }
+                }
+                
+                return (
+                  <button
+                    key={course.id}
+                    onClick={() => handleCourseSelect(course)}
+                    className={`p-2 rounded-lg text-center transition-all duration-200 ${
+                      isSelected 
+                        ? 'bg-green-100 border-2 border-green-500 text-green-700' 
+                        : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-2 border-transparent'
+                    }`}
+                  >
+                    <div className="text-2xl">{icon}</div>
+                    <div className={`text-xs font-medium truncate mt-1 ${isSelected ? 'text-green-700' : categoryColor}`}>
+                      {course.titre}
+                    </div>
+                    {isSelected && (
+                      <div className="text-[10px] text-green-500 mt-0.5">▶ En cours</div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            
+            {getFilteredCourses().length === 0 && (
+              <div className="text-center py-4 text-gray-500 text-sm">
+                Aucun cours disponible dans cette catégorie
               </div>
             )}
           </div>
 
           
+          {selectedCourse && (
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <h2 className="text-xl font-bold text-gray-800">{displayContent.title}</h2>
+              <p className="text-gray-600 mt-1">{displayContent.description}</p>
+              <div className="flex gap-4 mt-2">
+                <span className="text-sm text-gray-500">📊 Niveau: {selectedCourse.difficulte || 'Débutant'}</span>
+                <span className="text-sm text-gray-500">🎵 Fichier: {currentAudioFile}</span>
+              </div>
+            </div>
+          )}
+
+         
           <div className="bg-white rounded-xl shadow-lg p-8">
             <h3 className="text-xl font-bold mb-4">🎵 Lecteur Audio - {displayContent.title}</h3>
 
@@ -6686,7 +7353,7 @@ useEffect(() => {
             </div>
           )}
 
-          
+         
           {displayContent.transcript.length > 0 && (
             <div className="bg-white rounded-xl shadow-md p-6">
               <h3 className="text-xl font-bold mb-4">📝 Transcription</h3>
@@ -6713,27 +7380,19 @@ useEffect(() => {
 
           
           <div className="bg-white rounded-xl shadow-md p-6">
-            <h3 className="text-xl font-bold mb-4">🎤 Prendre des notes</h3>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Écrivez vos notes importantes ici..."
-                  className="w-full h-40 p-3 border rounded-lg resize-none focus:ring-2 focus:ring-green-500"
-                />
-                <button onClick={saveNotes} className="mt-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600">
-                  💾 Sauvegarder les notes
-                </button>
-              </div>
-              <div className="bg-purple-50 rounded-lg p-4">
-                <h4 className="font-semibold text-purple-800 mb-2">🎙️ Note vocale</h4>
-                <p className="text-sm text-purple-700 mb-3">Fonctionnalité d'enregistrement vocal à venir.</p>
-              </div>
-            </div>
+            <h3 className="text-xl font-bold mb-4">📓 Notes personnelles</h3>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Prenez des notes importantes ici..."
+              className="w-full h-32 p-3 border rounded-lg resize-none focus:ring-2 focus:ring-green-500"
+            />
+            <button onClick={saveNotes} className="mt-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600">
+              💾 Sauvegarder les notes
+            </button>
           </div>
 
-         
+          
           <div className="bg-gradient-to-r from-purple-500 to-purple-700 rounded-xl p-8 text-white">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-2xl font-bold">🎯 Quiz - {displayContent.title}</h3>
@@ -6767,6 +7426,7 @@ useEffect(() => {
               </div>
             )}
 
+           
             {loadingQuestions ? (
               <div className="text-center py-8">Chargement des questions...</div>
             ) : questions && questions.length > 0 ? (
@@ -6841,89 +7501,122 @@ useEffect(() => {
           </div>
 
           
-{showRecommendations && (
-  <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-6 text-white">
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-3">
-        <div className="text-3xl">🤖</div>
-        <div>
-          <h3 className="text-xl font-bold">Tuteur IA</h3>
-          <p className="text-sm opacity-90">Recommandations personnalisées basées sur vos erreurs</p>
-        </div>
-      </div>
-      <button
-        onClick={() => setShowRecommendations(false)}
-        className="text-white/70 hover:text-white transition"
-      >
-        ✕
-      </button>
-    </div>
-    
-    {loadingRecommendations ? (
-      <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-        <span className="ml-3">Analyse de vos résultats en cours...</span>
-      </div>
-    ) : recommendations.length > 0 ? (
-      <div className="space-y-3">
-        <p className="text-sm mb-2">
-          🎯 Basé sur vos erreurs, voici les cours recommandés par notre IA :
-        </p>
-        {recommendations.map((rec, idx) => (
-          <div 
-            key={idx}
-            onClick={() => navigateToRecommendedCourse(rec.cours_id)}
-            className="bg-white/10 rounded-lg p-4 cursor-pointer hover:bg-white/20 transition-all duration-200 group"
-          >
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">
-                    {rec.direct_match ? '🎯' : '📚'}
-                  </span>
-                  <h4 className="font-semibold group-hover:underline">
-                    {rec.cours_titre}
-                  </h4>
-                </div>
-                <p className="text-sm opacity-80 mt-1">{rec.description}</p>
-                {rec.nb_erreurs > 0 && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-xs bg-yellow-500/30 px-2 py-0.5 rounded-full">
-                      🔴 {rec.nb_erreurs} erreur(s) liée(s)
-                    </span>
-                    <span className="text-xs bg-green-500/30 px-2 py-0.5 rounded-full">
-                      Score de pertinence: {(rec.score * 100).toFixed(0)}%
-                    </span>
+          {showRecommendations && (
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-6 text-white">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="text-3xl">🤖</div>
+                  <div>
+                    <h3 className="text-xl font-bold">Tuteur IA</h3>
+                    <p className="text-sm opacity-90">Recommandations personnalisées basées sur vos erreurs</p>
                   </div>
-                )}
-              </div>
-              <div className="text-right">
-                <div className="bg-white/20 rounded-full w-8 h-8 flex items-center justify-center group-hover:bg-white/30 transition">
-                  ➡️
                 </div>
+                <button
+                  onClick={() => setShowRecommendations(false)}
+                  className="text-white/70 hover:text-white transition"
+                >
+                  ✕
+                </button>
               </div>
+              
+              {loadingRecommendations ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                  <span className="ml-3">Analyse de vos résultats en cours...</span>
+                </div>
+              ) : recommendations.length > 0 ? (
+                <div className="space-y-3">
+                  <p className="text-sm mb-2">
+                    🎯 Basé sur vos erreurs, voici les cours recommandés par notre IA :
+                  </p>
+                  {recommendations.map((rec, idx) => (
+                    <div 
+                      key={idx}
+                      onClick={() => navigateToRecommendedCourse(rec.cours_id)}
+                      className="bg-white/10 rounded-lg p-4 cursor-pointer hover:bg-white/20 transition-all duration-200 group"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl">
+                              {rec.direct_match ? '🎯' : '📚'}
+                            </span>
+                            <h4 className="font-semibold group-hover:underline">
+                              {rec.cours_titre}
+                            </h4>
+                          </div>
+                          <p className="text-sm opacity-80 mt-1">{rec.description}</p>
+                          {rec.nb_erreurs > 0 && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <span className="text-xs bg-yellow-500/30 px-2 py-0.5 rounded-full">
+                                🔴 {rec.nb_erreurs} erreur(s) liée(s)
+                              </span>
+                              <span className="text-xs bg-green-500/30 px-2 py-0.5 rounded-full">
+                                Score: {(rec.score * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <div className="bg-white/20 rounded-full w-8 h-8 flex items-center justify-center group-hover:bg-white/30 transition">
+                            ➡️
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-sm">Aucune recommandation disponible pour le moment.</p>
+                  <p className="text-xs opacity-70 mt-1">Continuez à faire des quiz pour obtenir des suggestions personnalisées.</p>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
-      </div>
-    ) : (
-      <div className="text-center py-6">
-        <p className="text-sm">Aucune recommandation disponible pour le moment.</p>
-        <p className="text-xs opacity-70 mt-1">Continuez à faire des quiz pour obtenir des suggestions personnalisées.</p>
-      </div>
-    )}
-  </div>
-)}
+          )}
+
           
-          <div className="grid grid-cols-4 gap-4">
-            <button onClick={() => window.location.href = '/courses'} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200">📚 Catalogue</button>
-            <button onClick={() => window.location.href = '/learning/video'} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200">🎬 Vidéo</button>
-            <button onClick={() => window.location.href = '/learning/text'} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200">📖 Texte</button>
-            <button onClick={() => window.location.href = '/'} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200">🏠 Accueil</button>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+            <button
+              onClick={() => navigate('/courses')}
+              className="px-3 sm:px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition text-xs sm:text-sm"
+            >
+              📚 Catalogue
+            </button>
+            <button
+              onClick={() => {
+                if (selectedCourse) {
+                  navigate(`/learning/video/${selectedCourse.id}`);
+                } else {
+                  navigate('/learning/video');
+                }
+              }}
+              className="px-3 sm:px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition text-xs sm:text-sm"
+            >
+              🎬 Vidéo
+            </button>
+            <button
+              onClick={() => {
+                if (selectedCourse) {
+                  navigate(`/learning/text/${selectedCourse.id}`);
+                } else {
+                  navigate('/learning/text');
+                }
+              }}
+              className="px-3 sm:px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition text-xs sm:text-sm"
+            >
+              📖 Texte
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="px-3 sm:px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition text-xs sm:text-sm"
+            >
+              🏠 Accueil
+            </button>
           </div>
         </div>
       )}
-    </main>
+    </div>
   </div>
 );
 };

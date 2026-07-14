@@ -16,7 +16,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from services.voice_search import voice_search_service
 from ml.sequential_miner import SequentialPatternMiner, generate_sample_logs
-
+from schemas import CertificateGenerateRequest, CertificateResponse, CertificateVerifyResponse
+from PIL import Image, ImageDraw, ImageFont
 from fastapi import FastAPI, Depends, HTTPException, status, Query, Path, Body, Header, UploadFile, File
 
 import whisper
@@ -27,7 +28,9 @@ from collections import defaultdict
 import pandas as pd
 
 import re
-
+import base64
+from io import BytesIO
+import uuid
 
 from config import config
 from models.database import db
@@ -313,6 +316,272 @@ def get_default_recommendation_direct():
         'timestamp': datetime.now().isoformat()
     }
 
+
+def generate_certificate_image(user_name: str, course_name: str, score: float, date: str, code: str):
+    """
+    Génère une image de certificat
+    """
+    # Dimensions du certificat
+    width = 1200
+    height = 848
+    
+    # Créer l'image
+    img = Image.new('RGB', (width, height), color='white')
+    draw = ImageDraw.Draw(img)
+    
+    # Couleurs
+    gold = (201, 168, 76)
+    dark_gold = (180, 150, 60)
+    dark_blue = (26, 26, 46)
+    medium_blue = (74, 74, 106)
+    light_blue = (45, 45, 68)
+    
+    # Bordures
+    draw.rectangle([40, 40, width-40, height-40], outline=gold, width=20)
+    draw.rectangle([60, 60, width-60, height-60], outline=dark_gold, width=4)
+    
+    # Charger les polices
+    try:
+        title_font = ImageFont.truetype("arial.ttf", 60)
+        name_font = ImageFont.truetype("arial.ttf", 48)
+        subtitle_font = ImageFont.truetype("arial.ttf", 24)
+        text_font = ImageFont.truetype("arial.ttf", 22)
+        course_font = ImageFont.truetype("arial.ttf", 32)
+        small_font = ImageFont.truetype("arial.ttf", 18)
+        logo_font = ImageFont.truetype("arial.ttf", 80)
+    except:
+        try:
+            title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 60)
+            name_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 48)
+            subtitle_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
+            text_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 22)
+            course_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 32)
+            small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18)
+            logo_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 80)
+        except:
+            title_font = ImageFont.load_default()
+            name_font = ImageFont.load_default()
+            subtitle_font = ImageFont.load_default()
+            text_font = ImageFont.load_default()
+            course_font = ImageFont.load_default()
+            small_font = ImageFont.load_default()
+            logo_font = ImageFont.load_default()
+    
+    # Titre
+    draw.text((width//2, 150), "🎓 CERTIFICAT DE RÉUSSITE", 
+              fill=dark_blue, font=title_font, anchor="mt")
+    
+    # Sous-titre
+    draw.text((width//2, 220), "Ce certificat atteste que", 
+              fill=medium_blue, font=subtitle_font, anchor="mt")
+    
+    # Nom de l'utilisateur
+    draw.text((width//2, 320), user_name, 
+              fill=gold, font=name_font, anchor="mt")
+    
+    # Texte de réussite
+    draw.text((width//2, 390), "a réussi l'examen final du cours :", 
+              fill=light_blue, font=text_font, anchor="mt")
+    
+    # Nom du cours
+    draw.text((width//2, 450), course_name, 
+              fill=dark_blue, font=course_font, anchor="mt")
+    
+    # Score
+    draw.text((width//2, 520), f"avec un score de {score:.1f}%", 
+              fill=light_blue, font=text_font, anchor="mt")
+    
+    # Date
+    draw.text((width//2, 580), f"Délivré le {date}", 
+              fill=medium_blue, font=small_font, anchor="mt")
+    
+    # Ligne de signature
+    draw.line([300, 680, 500, 680], fill=dark_blue, width=2)
+    draw.text((400, 710), "Signature du responsable", 
+              fill=medium_blue, font=small_font, anchor="mt")
+    
+    # Code du certificat
+    draw.text((width//2, 780), f"Code: {code}", 
+              fill=medium_blue, font=small_font, anchor="mt")
+    
+    # Logo
+    draw.text((width//2, 820), "🎓", 
+              fill=gold, font=logo_font, anchor="mt")
+    
+    # Sauvegarder l'image
+    img_byte_arr = BytesIO()
+    img.save(img_byte_arr, format='PNG')
+    img_byte_arr.seek(0)
+    
+    return img_byte_arr
+
+def generate_global_certificate_image(
+    user_name: str, 
+    courses_completed: list, 
+    total_courses: int,
+    score: float, 
+    date: str, 
+    code: str,
+    completion_percentage: float
+):
+    """
+    Génère une image de certificat global pour la formation complète
+    """
+    # Dimensions du certificat
+    width = 1200
+    height = 1000
+    
+    # Créer l'image
+    img = Image.new('RGB', (width, height), color='white')
+    draw = ImageDraw.Draw(img)
+    
+    # Couleurs
+    gold = (201, 168, 76)
+    dark_gold = (180, 150, 60)
+    dark_blue = (26, 26, 46)
+    medium_blue = (74, 74, 106)
+    light_blue = (45, 45, 68)
+    light_gray = (240, 240, 245)
+    
+    # Bordures
+    # Bordure extérieure dorée
+    draw.rectangle([40, 40, width-40, height-40], outline=gold, width=20)
+    # Bordure intérieure
+    draw.rectangle([60, 60, width-60, height-60], outline=dark_gold, width=4)
+    # Fond intérieur légèrement coloré
+    draw.rectangle([70, 70, width-70, height-70], outline=light_gray, width=1)
+    
+    # Charger les polices
+    try:
+        title_font = ImageFont.truetype("arial.ttf", 52)
+        subtitle_font = ImageFont.truetype("arial.ttf", 26)
+        name_font = ImageFont.truetype("arial.ttf", 48)
+        text_font = ImageFont.truetype("arial.ttf", 20)
+        course_font = ImageFont.truetype("arial.ttf", 16)
+        small_font = ImageFont.truetype("arial.ttf", 14)
+        logo_font = ImageFont.truetype("arial.ttf", 60)
+    except:
+        try:
+            # Pour Linux/Mac
+            title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 52)
+            subtitle_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 26)
+            name_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 48)
+            text_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20)
+            course_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16)
+            small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 14)
+            logo_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 60)
+        except:
+            title_font = ImageFont.load_default()
+            subtitle_font = ImageFont.load_default()
+            name_font = ImageFont.load_default()
+            text_font = ImageFont.load_default()
+            course_font = ImageFont.load_default()
+            small_font = ImageFont.load_default()
+            logo_font = ImageFont.load_default()
+    
+    # Titre principal
+    draw.text((width//2, 120), "🎓 CERTIFICAT DE RÉUSSITE", 
+              fill=dark_blue, font=title_font, anchor="mt")
+    
+    # Sous-titre
+    draw.text((width//2, 180), "Formation Complète en Développement Web", 
+              fill=medium_blue, font=subtitle_font, anchor="mt")
+    
+    # Ligne de séparation
+    draw.line([300, 210, 900, 210], fill=gold, width=2)
+    
+    # "Ce certificat atteste que"
+    draw.text((width//2, 250), "Ce certificat atteste que", 
+              fill=medium_blue, font=text_font, anchor="mt")
+    
+    # Nom de l'utilisateur
+    draw.text((width//2, 310), user_name, 
+              fill=gold, font=name_font, anchor="mt")
+    
+    # Texte de réussite
+    draw.text((width//2, 380), "a complété avec succès l'ensemble des cours suivants :", 
+              fill=light_blue, font=text_font, anchor="mt")
+    
+    # Boîte des cours
+    box_y = 420
+    box_height = 200
+    box_margin = 80
+    
+    # Fond de la boîte
+    draw.rectangle([box_margin, box_y, width-box_margin, box_y + box_height], 
+                   fill=light_gray, outline=gold, width=1)
+    
+    # Titre de la boîte
+    draw.text((width//2, box_y + 15), "📚 Modules validés", 
+              fill=dark_blue, font=course_font, anchor="mt")
+    
+    # Ligne sous le titre
+    draw.line([box_margin + 50, box_y + 35, width - box_margin - 50, box_y + 35], 
+              fill=dark_gold, width=1)
+    
+    # Afficher les cours en grille
+    max_courses = min(len(courses_completed), 16)
+    courses_to_show = courses_completed[:max_courses]
+    
+    # Calculer le nombre de colonnes
+    cols = 2 if len(courses_to_show) <= 8 else 3
+    rows = (len(courses_to_show) + cols - 1) // cols
+    
+    col_width = (width - 2 * box_margin - 60) // cols
+    row_height = 28
+    
+    start_x = box_margin + 40
+    start_y = box_y + 55
+    
+    draw.text_anchor = "lt"
+    
+    for idx, course in enumerate(courses_to_show):
+        col = idx % cols
+        row = idx // cols
+        x = start_x + col * col_width
+        y = start_y + row * row_height
+        
+        # Limiter la longueur du titre
+        title = course['titre']
+        if len(title) > 30:
+            title = title[:28] + "..."
+        
+        # Ajouter une petite puce
+        draw.text((x, y), "●", fill=gold, font=small_font)
+        draw.text((x + 20, y), title, fill=dark_blue, font=small_font)
+    
+    # Score final
+    draw.text((width//2, 660), f"Score final : {score:.1f}%", 
+              fill=light_blue, font=text_font, anchor="mt")
+    
+    # Taux de complétion
+    draw.text((width//2, 700), f"Taux de complétion : {completion_percentage:.0f}%", 
+              fill=medium_blue, font=small_font, anchor="mt")
+    
+    # Date
+    draw.text((width//2, 760), f"Délivré le {date}", 
+              fill=medium_blue, font=small_font, anchor="mt")
+    
+    # Ligne de signature
+    draw.line([350, 800, 550, 800], fill=dark_blue, width=2)
+    draw.text((450, 830), "Signature du responsable pédagogique", 
+              fill=medium_blue, font=small_font, anchor="mt")
+    
+    # Code du certificat
+    draw.text((width//2, 880), f"Code: {code}", 
+              fill=medium_blue, font=small_font, anchor="mt")
+    
+    # Logo final
+    draw.text((width//2, 930), "🎓", 
+              fill=gold, font=logo_font, anchor="mt")
+    
+    # Sauvegarder l'image
+    img_byte_arr = BytesIO()
+    img.save(img_byte_arr, format='PNG')
+    img_byte_arr.seek(0)
+    
+    return img_byte_arr
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     
@@ -399,7 +668,439 @@ except Exception as e:
     logger.warning(f"⚠️ Sequential Pattern Miner non chargé: {e}")
 
 
+@app.post("/certificates/generate")
+async def generate_certificate(
+    request: CertificateGenerateRequest,
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Génère un certificat pour un utilisateur après réussite d'un examen
+    """
+    try:
+        # Vérifier que l'utilisateur est le même
+        if current_user.id != request.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Vous ne pouvez générer un certificat que pour vous-même"
+            )
+        
+        # Vérifier si l'utilisateur existe
+        user = await db.get_user_by_id(request.user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+        
+        # Vérifier si le cours existe
+        course = await db.read_one("cours_html", {"id": request.course_id})
+        if not course:
+            raise HTTPException(status_code=404, detail="Cours non trouvé")
+        
+        # Vérifier si un certificat existe déjà
+        exists = await db.certificate_exists(request.user_id, request.course_id, request.mode)
+        if exists:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Un certificat existe déjà pour ce cours et ce mode"
+            )
+        
+        # Générer un code unique
+        certificate_code = f"CERT-{uuid.uuid4().hex[:8].upper()}-{datetime.now().strftime('%Y%m%d')}"
+        
+        # Formater la date
+        if request.date:
+            try:
+                date_obj = datetime.fromisoformat(request.date.replace('Z', '+00:00'))
+            except:
+                date_obj = datetime.now()
+        else:
+            date_obj = datetime.now()
+        date_str = date_obj.strftime("%d/%m/%Y")
+        
+        # Nom complet de l'utilisateur
+        user_name = f"{user.get('prenom', '')} {user.get('nom', '')}".strip()
+        if not user_name:
+            user_name = user.get('email', 'Utilisateur')
+        
+        # Générer l'image du certificat
+        img_bytes = generate_certificate_image(
+            user_name=user_name,
+            course_name=request.course_name,
+            score=request.score,
+            date=date_str,
+            code=certificate_code
+        )
+        
+        # Convertir en base64
+        img_base64 = base64.b64encode(img_bytes.getvalue()).decode('utf-8')
+        certificate_url = f"data:image/png;base64,{img_base64}"
+        
+        # Sauvegarder dans la base de données
+        certificate_id = await db.save_certificate(
+            user_id=request.user_id,
+            course_id=request.course_id,
+            mode=request.mode,
+            score=request.score,
+            certificate_url=certificate_url,
+            certificate_code=certificate_code
+        )
+        
+        # Logger l'action
+        await log_admin_action(
+            admin_id=current_user.id,
+            action="GENERATE_CERTIFICATE",
+            table="certificats",
+            record_id=certificate_id,
+            details={
+                "course_id": request.course_id,
+                "score": request.score,
+                "code": certificate_code
+            }
+        )
+        
+        return {
+            "success": True,
+            "certificate_id": certificate_id,
+            "certificate_code": certificate_code,
+            "certificate_url": certificate_url,
+            "message": "Certificat généré avec succès"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erreur génération certificat: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur lors de la génération du certificat: {str(e)}"
+        )
 
+@app.get("/certificates/user")
+async def get_my_certificates(
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Récupère tous les certificats de l'utilisateur connecté
+    """
+    try:
+        certificates = await db.get_user_certificates(current_user.id)
+        return certificates
+    except Exception as e:
+        logger.error(f"Erreur récupération certificats: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erreur lors de la récupération des certificats"
+        )
+
+@app.get("/certificates/verify/{code}")
+async def verify_certificate(
+    code: str,
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Vérifie la validité d'un certificat
+    """
+    try:
+        certificate = await db.get_certificate_by_code(code)
+        
+        if not certificate:
+            return {
+                "valid": False,
+                "message": "Certificat non trouvé"
+            }
+        
+        return {
+            "valid": True,
+            "certificate": {
+                "code": certificate['certificate_code'],
+                "user_name": f"{certificate.get('user_prenom', '')} {certificate.get('user_nom', '')}".strip() or certificate.get('user_email'),
+                "user_email": certificate.get('user_email'),
+                "course_name": certificate.get('course_title'),
+                "score": float(certificate.get('score', 0)),
+                "mode": certificate.get('mode'),
+                "date": certificate.get('date_created').strftime("%d/%m/%Y") if certificate.get('date_created') else None
+            }
+        }
+    except Exception as e:
+        logger.error(f"Erreur vérification certificat: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erreur lors de la vérification du certificat"
+        )
+
+@app.post("/certificates/generate-global")
+async def generate_global_certificate(
+    request: CertificateGenerateRequest,
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Génère un certificat global pour la formation complète
+    """
+    try:
+        # Vérifier que l'utilisateur est le même
+        if current_user.id != request.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Vous ne pouvez générer un certificat que pour vous-même"
+            )
+        
+        # Vérifier si l'utilisateur existe
+        user = await db.get_user_by_id(request.user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+        
+        # Récupérer tous les cours complétés
+        async with db.get_connection() as conn:
+            # Nombre total de cours
+            total_courses = await conn.fetchval("""
+                SELECT COUNT(*) FROM cours_html WHERE est_actif = true
+            """)
+            
+            # Liste des cours complétés
+            courses_rows = await conn.fetch("""
+                SELECT DISTINCT c.id, c.titre, c.difficulte
+                FROM cours_html c
+                JOIN resultats_apprentissage r ON c.id = r.cours_id
+                WHERE r.utilisateur_id = $1 AND r.est_reussi = true
+                ORDER BY c.id
+            """, request.user_id)
+            
+            courses_completed = [dict(row) for row in courses_rows]
+            completed_count = len(courses_completed)
+            
+            # Calculer le pourcentage de complétion
+            completion_percentage = (completed_count / total_courses) * 100 if total_courses > 0 else 0
+            
+            # Vérifier que l'utilisateur a complété au moins 50% des cours
+            min_required = 50
+            if completion_percentage < min_required:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Vous devez compléter au moins {min_required}% des cours pour obtenir le certificat global. "
+                           f"Vous avez complété {completion_percentage:.0f}% ({completed_count}/{total_courses})"
+                )
+            
+            # Si l'utilisateur demande un certificat pour un cours spécifique mais a complété tous les cours
+            # on peut proposer le certificat global
+            is_global = request.course_name == "Formation Complète HTML, CSS & JavaScript"
+            
+            # Générer un code unique pour le certificat
+            certificate_code = f"GLOBAL-{uuid.uuid4().hex[:8].upper()}-{datetime.now().strftime('%Y%m%d')}"
+            
+            # Formater la date
+            date_obj = datetime.now()
+            date_str = date_obj.strftime("%d/%m/%Y")
+            
+            # Nom complet de l'utilisateur
+            user_name = f"{user.get('prenom', '')} {user.get('nom', '')}".strip()
+            if not user_name:
+                user_name = user.get('email', 'Utilisateur')
+            
+            # Générer l'image du certificat global
+            img_bytes = generate_global_certificate_image(
+                user_name=user_name,
+                courses_completed=courses_completed,
+                total_courses=total_courses,
+                score=request.score,
+                date=date_str,
+                code=certificate_code,
+                completion_percentage=completion_percentage
+            )
+            
+            # Convertir en base64
+            img_base64 = base64.b64encode(img_bytes.getvalue()).decode('utf-8')
+            certificate_url = f"data:image/png;base64,{img_base64}"
+            
+            # Sauvegarder dans la base de données
+            try:
+                async with db.get_connection() as conn:
+                    # Vérifier si la table certificats existe
+                    table_exists = await conn.fetchval("""
+                        SELECT EXISTS (
+                            SELECT 1 FROM information_schema.tables 
+                            WHERE table_name = 'certificats'
+                        )
+                    """)
+                    
+                    if not table_exists:
+                        await db.create_certificates_table()
+                    
+                    # Insérer le certificat
+                    row = await conn.fetchrow("""
+                        INSERT INTO certificats 
+                        (user_id, course_id, mode, score, certificate_url, certificate_code, date_created)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7)
+                        RETURNING id
+                    """, 
+                        request.user_id,
+                        0,  # course_id = 0 pour global
+                        request.mode,
+                        request.score,
+                        certificate_url,
+                        certificate_code,
+                        datetime.now()
+                    )
+                    
+                    certificate_id = row['id']
+                    
+                    # Logger l'action
+                    await conn.execute("""
+                        INSERT INTO logs_admin (admin_id, action, table_affectee, id_ligne, details)
+                        VALUES ($1, $2, $3, $4, $5)
+                    """,
+                        current_user.id,
+                        "GENERATE_GLOBAL_CERTIFICATE",
+                        "certificats",
+                        certificate_id,
+                        f"Certificat global généré avec {completed_count}/{total_courses} cours complétés, score: {request.score}%"
+                    )
+            except Exception as db_error:
+                logger.warning(f"Erreur sauvegarde certificat en DB: {db_error}")
+                certificate_id = None
+            
+            return {
+                "success": True,
+                "certificate_id": certificate_id,
+                "certificate_code": certificate_code,
+                "certificate_url": certificate_url,
+                "is_global": True,
+                "courses_completed": completed_count,
+                "total_courses": total_courses,
+                "completion_percentage": completion_percentage,
+                "message": f"Certificat global généré avec succès ! {completed_count}/{total_courses} cours complétés."
+            }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erreur génération certificat global: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur lors de la génération du certificat global: {str(e)}"
+        )
+
+
+@app.get("/certificates/global/status")
+async def get_global_certificate_status(
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Vérifie si l'utilisateur peut obtenir un certificat global
+    """
+    try:
+        async with db.get_connection() as conn:
+            
+            total_courses = await conn.fetchval("""
+                SELECT COUNT(*) FROM cours_html WHERE est_actif = true
+            """)
+            
+            
+            completed_count = await conn.fetchval("""
+                SELECT COUNT(DISTINCT cours_id) 
+                FROM resultats_apprentissage 
+                WHERE utilisateur_id = $1 AND est_reussi = true
+            """, current_user.id)
+            
+            completed_count = completed_count or 0
+            
+            
+            cert_exists = await conn.fetchval("""
+                SELECT COUNT(*) FROM certificats 
+                WHERE user_id = $1 AND course_id = 0
+            """, current_user.id)
+            
+            completion_percentage = (completed_count / total_courses) * 100 if total_courses > 0 else 0
+            can_generate = completion_percentage >= 50
+            
+            return {
+                "total_courses": total_courses,
+                "completed_courses": completed_count,
+                "completion_percentage": round(completion_percentage, 1),
+                "can_generate": can_generate,
+                "certificate_exists": cert_exists > 0,
+                "message": "Vous pouvez générer votre certificat global !" if can_generate else 
+                          f"Complétez au moins 50% des cours ({int(total_courses * 0.5)}/{total_courses})"
+            }
+    except Exception as e:
+        logger.error(f"Erreur vérification certificat global: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erreur lors de la vérification"
+        )
+
+@app.get("/certificates/download/{code}")
+async def download_certificate(
+    code: str,
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Télécharge un certificat en tant que fichier image
+    """
+    try:
+        certificate = await db.get_certificate_by_code(code)
+        
+        if not certificate:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Certificat non trouvé"
+            )
+        
+        if certificate['user_id'] != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Vous n'avez pas accès à ce certificat"
+            )
+        
+        cert_url = certificate.get('certificate_url')
+        if cert_url and cert_url.startswith('data:image/png;base64,'):
+            base64_data = cert_url.replace('data:image/png;base64,', '')
+            img_data = base64.b64decode(base64_data)
+            
+            from fastapi.responses import Response
+            return Response(
+                content=img_data,
+                media_type="image/png",
+                headers={
+                    "Content-Disposition": f"attachment; filename=certificat_{code}.png"
+                }
+            )
+        
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Image du certificat non disponible"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erreur téléchargement certificat: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erreur lors du téléchargement du certificat"
+        )
+
+@app.get("/certificates/check/{course_id}")
+async def check_certificate_exists(
+    course_id: int,
+    mode: str = Query(..., description="Mode d'apprentissage: texte, audio, video"),
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Vérifie si un certificat existe déjà pour un cours et un mode
+    """
+    try:
+        exists = await db.certificate_exists(current_user.id, course_id, mode)
+        return {
+            "exists": exists,
+            "user_id": current_user.id,
+            "course_id": course_id,
+            "mode": mode
+        }
+    except Exception as e:
+        logger.error(f"Erreur vérification certificat: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erreur lors de la vérification"
+        )
 
 
 @app.post("/mistakes/save")

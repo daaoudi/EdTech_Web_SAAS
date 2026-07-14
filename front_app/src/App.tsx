@@ -38,23 +38,41 @@ function App() {
           </PrivateRoute>
         } />
         
-        <Route path="learning/text" element={
-          <PrivateRoute>
-            <TextLearningPage />
-          </PrivateRoute>
-        } />
-        
-        <Route path="learning/audio" element={
-          <PrivateRoute>
-            <AudioLearningPage />
-          </PrivateRoute>
-        } />
-        
-        <Route path="learning/video" element={
-          <PrivateRoute>
-            <VideoLearningPage />
-          </PrivateRoute>
-        } />
+       <Route path="learning/text" element={
+  <PrivateRoute>
+    <TextLearningPage />
+  </PrivateRoute>
+} />
+
+<Route path="learning/text/:courseId" element={
+  <PrivateRoute>
+    <TextLearningPage />
+  </PrivateRoute>
+} />
+
+<Route path="learning/audio" element={
+  <PrivateRoute>
+    <AudioLearningPage />
+  </PrivateRoute>
+} />
+
+<Route path="learning/audio/:courseId" element={
+  <PrivateRoute>
+    <AudioLearningPage />
+  </PrivateRoute>
+} />
+
+<Route path="learning/video" element={
+  <PrivateRoute>
+    <VideoLearningPage />
+  </PrivateRoute>
+} />
+
+<Route path="learning/video/:courseId" element={
+  <PrivateRoute>
+    <VideoLearningPage />
+  </PrivateRoute>
+} />
         
         <Route path="progress" element={
           <PrivateRoute>

@@ -1,4 +1,3 @@
-
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { courseService } from '../services/courseService';
@@ -8,20 +7,106 @@ import UserBehaviorAnalysis from './UserBehaviorAnalysis';
 import BehaviorRiskAnalysis from './BehaviorRiskAnalysis';
 import api from '../services/api';
 import DropoutPrediction from './DropoutPrediction';
+import { useLearningContext } from '../contexts/LearningContext';
+
 
 interface SidebarProps {
   open?: boolean;
   onClose?: () => void;
 }
 
+
+const COURSE_CATEGORIES = {
+  HTML: {
+    id: 'html',
+    icon: '📄',
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-50',
+    borderColor: 'border-orange-200',
+    courses: [
+      { id: 6, title: 'Formatage du Texte en HTML', icon: '📝' },
+      { id: 11, title: 'Les Liens Hypertextes en HTML', icon: '🔗' },
+      { id: 12, title: 'Images en HTML', icon: '🖼️' },
+      { id: 8, title: 'Formulaires HTML Avancés', icon: '📝' },
+      { id: 13, title: 'Les Tableaux en HTML', icon: '📊' },
+      { id: 14, title: 'HTML Head - Métadonnées', icon: '🧩' },
+      { id: 15, title: 'HTML Multimédia', icon: '🎬' },
+      { id: 9, title: 'HTML5 Sémantique', icon: '🏗️' },
+    ]
+  },
+  CSS: {
+    id: 'css',
+    icon: '🎨',
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-50',
+    borderColor: 'border-blue-200',
+    courses: [
+      { id: 16, title: 'CSS Media Queries', icon: '📱' },
+      { id: 17, title: 'CSS - Sélecteurs', icon: '🎯' },
+      { id: 18, title: 'CSS - Couleurs', icon: '🎨' },
+      { id: 19, title: 'CSS - Arrière-plans', icon: '🖼️' },
+      { id: 20, title: 'CSS - Bordures', icon: '🖼️' },
+      { id: 22, title: 'CSS - Marges', icon: '📐' },
+      { id: 23, title: 'CSS - Padding', icon: '📦' },
+      { id: 24, title: 'CSS - Texte', icon: '📝' },
+      { id: 25, title: 'CSS - Polices', icon: '🔤' },
+      { id: 26, title: 'CSS - Liens', icon: '🔗' },
+      { id: 27, title: 'CSS - Listes', icon: '📋' },
+      { id: 28, title: 'CSS - Tableaux', icon: '📊' },
+      { id: 29, title: 'CSS - Display & Visibility', icon: '👁️' },
+      { id: 30, title: 'CSS - Positionnement', icon: '📍' },
+      { id: 31, title: 'CSS - Overflow', icon: '📦' },
+      { id: 32, title: 'CSS - Float', icon: '🌊' },
+      { id: 10, title: 'CSS Flexbox & Grid', icon: '🎨' },
+    ]
+  },
+  JavaScript: {
+    id: 'js',
+    icon: '🚀',
+    color: 'text-yellow-600',
+    bgColor: 'bg-yellow-50',
+    borderColor: 'border-yellow-200',
+    courses: [
+      { id: 33, title: 'JavaScript - Introduction', icon: '🚀' },
+      { id: 34, title: 'JavaScript - Variables', icon: '📦' },
+      { id: 35, title: 'JavaScript - Types de Données', icon: '🔢' },
+      { id: 36, title: 'JavaScript - Opérateurs', icon: '➕' },
+      { id: 37, title: 'JavaScript - Conditions', icon: '🤔' },
+      { id: 38, title: 'JavaScript - Boucles', icon: '🔄' },
+      { id: 39, title: 'JavaScript - Chaînes', icon: '📝' },
+      { id: 40, title: 'JavaScript - Nombres', icon: '🔢' },
+      { id: 41, title: 'JavaScript - Fonctions', icon: '🎯' },
+      { id: 42, title: 'JavaScript - Objets', icon: '🧍' },
+      { id: 43, title: 'JavaScript - Tableaux', icon: '🗃️' },
+      { id: 44, title: 'JavaScript - Sets', icon: '🔢' },
+      { id: 45, title: 'JavaScript - Maps', icon: '🗺️' },
+      { id: 46, title: 'JavaScript - Math', icon: '🧮' },
+      { id: 47, title: 'JavaScript - Regex', icon: '🔍' },
+      { id: 48, title: 'JavaScript - Events', icon: '🎯' },
+    ]
+  }
+};
+
 const Sidebar = ({ open = false, onClose = () => {} }: SidebarProps) => {
   const { isAuthenticated, user, refreshUser } = useAuth();
+  const learningContext = useLearningContext();
   const [progress, setProgress] = useState<UserProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const [synced, setSynced] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
+    HTML: true,
+    CSS: false,
+    JavaScript: false
+  });
 
-  
+  const toggleCategory = (category: string) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
+
   useEffect(() => {
     const syncUserProfile = async () => {
       if (isAuthenticated && user && !synced) {
@@ -59,7 +144,6 @@ const Sidebar = ({ open = false, onClose = () => {} }: SidebarProps) => {
 
   const closeSidebar = () => onClose();
 
-  
   if (!isAuthenticated) {
     return (
       <>
@@ -70,7 +154,6 @@ const Sidebar = ({ open = false, onClose = () => {} }: SidebarProps) => {
     );
   }
 
-  
   if (loading) {
     return (
       <aside className="hidden lg:block w-72 bg-white shadow-lg min-h-screen sticky top-16">
@@ -84,7 +167,6 @@ const Sidebar = ({ open = false, onClose = () => {} }: SidebarProps) => {
     );
   }
 
-  
   const modeScores = progress?.stats_par_mode || {
     texte: { nb_cours: 0, score_moyen: 0 },
     audio: { nb_cours: 0, score_moyen: 0 },
@@ -95,7 +177,6 @@ const Sidebar = ({ open = false, onClose = () => {} }: SidebarProps) => {
   const scoreMoyen = progress?.score_moyen ?? 0;
   const progressionNiveau = progress?.progression_niveau ?? 0;
 
-  
   const getBestMode = () => {
     const entries = Object.entries(modeScores);
     let best = { mode: 'texte', score: 0 };
@@ -112,7 +193,6 @@ const Sidebar = ({ open = false, onClose = () => {} }: SidebarProps) => {
   const bestModeIcon = bestMode.mode === 'texte' ? '📖' : bestMode.mode === 'audio' ? '🎧' : '🎬';
   const bestModeLabel = bestMode.mode === 'texte' ? 'Texte' : bestMode.mode === 'audio' ? 'Audio' : 'Vidéo';
 
-  
   const getLearnerTypeDisplay = () => {
     const type = user?.type_apprenant || 'mixte';
     const labels: Record<string, { icon: string; label: string }> = {
@@ -141,7 +221,7 @@ const Sidebar = ({ open = false, onClose = () => {} }: SidebarProps) => {
         </button>
       </div>
 
-      
+     
       <div className="mb-5 p-4 bg-gray-50 rounded-xl">
         <p className="font-semibold text-sm">
           👤 {user?.prenom} {user?.nom}
@@ -161,7 +241,7 @@ const Sidebar = ({ open = false, onClose = () => {} }: SidebarProps) => {
         </div>
       </div>
 
-      
+     
       {bestMode.score > 0 && (
         <div className="mb-5 p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl">
           <p className="text-xs text-gray-500 mb-1">Votre meilleur format</p>
@@ -181,10 +261,9 @@ const Sidebar = ({ open = false, onClose = () => {} }: SidebarProps) => {
       </div>
 
       <div className="mb-5">
-  <DropoutPrediction />
-</div>
+        <DropoutPrediction />
+      </div>
 
-      
       <div className="mb-5">
         <BehaviorRiskAnalysis />
       </div>
@@ -233,7 +312,7 @@ const Sidebar = ({ open = false, onClose = () => {} }: SidebarProps) => {
         </div>
       </div>
 
-      
+     
       <div className="mb-5">
         <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
           Scores par format
@@ -279,6 +358,77 @@ const Sidebar = ({ open = false, onClose = () => {} }: SidebarProps) => {
           </div>
         </div>
       )}
+
+      
+      <div className="mb-5 border-t border-gray-100 pt-5">
+        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+          📚 Cours par catégorie
+        </h4>
+        
+        
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          {Object.entries(COURSE_CATEGORIES).map(([key, cat]) => (
+            <button
+              key={key}
+              onClick={() => toggleCategory(key)}
+              className={`px-2 py-2 rounded-xl text-center text-xs font-medium transition-colors ${cat.bgColor} ${cat.color} hover:opacity-80 relative`}
+            >
+              <div className="text-lg">{cat.icon}</div>
+              <div>{key}</div>
+              <div className="text-[10px] opacity-60 mt-0.5">
+                {cat.courses.length} cours
+              </div>
+            </button>
+          ))}
+        </div>
+
+       
+        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+          {Object.entries(COURSE_CATEGORIES).map(([key, cat]) => {
+            const isExpanded = expandedCategories[key] || false;
+            
+            return (
+              <div key={key} className={`border ${cat.borderColor} rounded-xl overflow-hidden`}>
+                <button
+                  onClick={() => toggleCategory(key)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 ${cat.bgColor} hover:opacity-90 transition`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{cat.icon}</span>
+                    <span className={`font-semibold text-sm ${cat.color}`}>
+                      {key}
+                    </span>
+                    <span className="text-xs text-gray-400 font-normal">
+                      ({cat.courses.length} cours)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+                      ▼
+                    </span>
+                  </div>
+                </button>
+                
+                {isExpanded && (
+                  <div className="p-2 space-y-0.5 bg-white">
+                    {cat.courses.map((course) => (
+                      <Link
+                        key={course.id}
+                        to={`/learning/text/${course.id}`}
+                        onClick={closeSidebar}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 transition-colors"
+                      >
+                        <span className="text-base">{course.icon}</span>
+                        <span className="truncate flex-1">{course.title}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       
       <Link
@@ -333,6 +483,96 @@ const Sidebar = ({ open = false, onClose = () => {} }: SidebarProps) => {
           ))}
         </nav>
       </div>
+
+      
+      {isAuthenticated && learningContext && (
+        <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
+          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+            🎯 Actions d'apprentissage
+          </h4>
+          
+          <button
+            onClick={learningContext.generatePersonalizedQuiz}
+            disabled={learningContext.isGeneratingQuiz || !learningContext.selectedCourseId}
+            className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+          >
+            {learningContext.isGeneratingQuiz ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Génération...
+              </>
+            ) : (
+              '🎯 Quiz Personnalisé'
+            )}
+          </button>
+
+          <button
+            onClick={learningContext.showTutorRecommendations}
+            disabled={!learningContext.hasMistakes}
+            className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+          >
+            🤖 Tuteur IA - Recommandations
+          </button>
+
+          <button
+            onClick={learningContext.showMistakeStats}
+            className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm flex items-center justify-center gap-2"
+          >
+            📊 Statistiques d'erreurs
+          </button>
+
+          <button
+            onClick={learningContext.generateBertQuiz}
+            disabled={learningContext.isGeneratingQuiz || !learningContext.selectedCourseId}
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+          >
+            {learningContext.isGeneratingQuiz ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Génération...
+              </>
+            ) : (
+              '🤖 Générer Quiz IA'
+            )}
+          </button>
+
+          {!learningContext.isExamMode ? (
+            <button
+              onClick={learningContext.generateExam}
+              disabled={learningContext.isGeneratingExam || !learningContext.selectedCourseId}
+              className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+            >
+              {learningContext.isGeneratingExam ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Génération...
+                </>
+              ) : (
+                '📝 Examen final'
+              )}
+            </button>
+          ) : (
+            <button
+              onClick={learningContext.cancelExam}
+              className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition text-sm flex items-center justify-center gap-2"
+            >
+              ❌ Annuler l'examen
+            </button>
+          )}
+
+         
+          {learningContext.hasMistakes && (
+            <div className="text-xs text-center text-orange-600 bg-orange-50 p-2 rounded-lg">
+              📝 {learningContext.hasMistakes ? 'Erreurs enregistrées' : 'Aucune erreur'}
+            </div>
+          )}
+          {learningContext.isExamMode && (
+            <div className="text-xs text-center text-purple-600 bg-purple-50 p-2 rounded-lg">
+              📝 Mode examen actif
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 

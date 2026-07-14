@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel, EmailStr, Field, validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -14,6 +13,11 @@ class Difficulty(str, Enum):
     DEBUTANT = "debutant"
     INTERMEDIAIRE = "intermediaire"
     AVANCE = "avance"
+    
+    AVANCE_ACCENT = "avancé" 
+    DIFFICILE = "difficile"  
+    FACILE = "facile"        
+    MOYEN = "moyen"           
 
 class QuestionType(str, Enum):
     CHOIX_MULTIPLE = "choix_multiple"
@@ -78,7 +82,7 @@ class QuestionBase(BaseModel):
     question: str
     type_question: QuestionType
     points: int = Field(1, ge=1, le=10)
-    difficulte: str = "moyen"
+    difficulte: str = "moyen"  # Utiliser str au lieu de Difficulty pour plus de flexibilité
     reponse_correcte: str
     explication: Optional[str] = None
     mode_specifique: Optional[LearningMode] = None
@@ -95,6 +99,34 @@ class Question(QuestionBase):
     
     class Config:
         from_attributes = True
+    
+    # Validator pour normaliser la difficulté
+    @validator('difficulte', pre=True)
+    def normalize_difficulte(cls, v):
+        if v is None:
+            return "moyen"
+        v_str = str(v).lower()
+        
+        # Normaliser les valeurs
+        mapping = {
+            'facile': 'facile',
+            'moyen': 'moyen',
+            'difficile': 'difficile',
+            'avancé': 'difficile',
+            'avance': 'difficile',
+            'advanced': 'difficile',
+            'debutant': 'facile',
+            'débutant': 'facile',
+            'beginner': 'facile',
+            'intermediaire': 'moyen',
+            'intermédiaire': 'moyen',
+            'intermediate': 'moyen',
+            'easy': 'facile',
+            'medium': 'moyen',
+            'hard': 'difficile'
+        }
+        
+        return mapping.get(v_str, 'moyen')
 
 class LearningResultBase(BaseModel):
     cours_id: int
@@ -105,6 +137,7 @@ class LearningResultBase(BaseModel):
 
 class LearningResultCreate(LearningResultBase):
     feedback: Optional[str] = None
+    est_reussi: Optional[bool] = False
 
 class LearningResult(LearningResultBase):
     id: int
@@ -179,3 +212,29 @@ class ErreurStatsResponse(BaseModel):
 
 class MarquerRevueRequest(BaseModel):
     erreur_id: int
+
+class CertificateGenerateRequest(BaseModel):
+    user_id: int
+    course_id: int
+    score: float
+    course_name: str
+    mode: str
+    date: Optional[str] = None
+
+class CertificateResponse(BaseModel):
+    id: int
+    user_id: int
+    course_id: int
+    mode: str
+    score: float
+    certificate_url: str
+    certificate_code: str
+    date_created: datetime
+    
+    class Config:
+        from_attributes = True
+
+class CertificateVerifyResponse(BaseModel):
+    valid: bool
+    certificate: Optional[Dict[str, Any]] = None
+    message: Optional[str] = None

@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect ,useRef,useCallback} from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { courseService } from '../services/courseService';
 import type { Course } from '../services/courseService';
@@ -11,6 +11,9 @@ import api from '../services/api';
 import { mistakeService } from '../services/mistakeService';
 import { bertQuizService } from '../services/bertService';
 import { bertRecommendationService } from '../services/bertService';
+import { useNavigate } from 'react-router-dom';
+import { LearningProvider, LearningContextType } from '../contexts/LearningContext';
+import { useOutletContext } from 'react-router-dom';
 
 interface Question {
   id: number;
@@ -51,8 +54,7 @@ const VideoLearningPage = () => {
   const [generatingQuiz, setGeneratingQuiz] = useState(false);
 const [quizGenerationMode, setQuizGenerationMode] = useState<'default' | 'bert' | 'personalized'>('default');
 const [mistakeQuestions, setMistakeQuestions] = useState<string[]>([]);
- const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+
   const [examMode, setExamMode] = useState(false);
 const [examQuestions, setExamQuestions] = useState<Question[]>([]);
 const [examSubmitted, setExamSubmitted] = useState(false);
@@ -62,6 +64,316 @@ const [generatingExam, setGeneratingExam] = useState(false);
 const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
 const [showRecommendations, setShowRecommendations] = useState(false);
 const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+const [selectedCategory, setSelectedCategory] = useState<string>('all');
+const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+const dropdownRef = useRef<HTMLDivElement>(null);
+const navigate = useNavigate();
+const { setLearningContextValue } = useOutletContext<{ 
+    setLearningContextValue: (value: LearningContextType) => void 
+  }>();
+
+
+
+ const generateCertificate = async (examResultData: any, courseName: string) => {
+  if (!user) return;
+
+  try {
+    const response = await api.post('/certificates/generate', {
+      user_id: user.id,
+      course_id: selectedCourse?.id,
+      score: examResultData.percentage,
+      course_name: 'Formation Complète HTML, CSS & JavaScript',  
+      mode: 'video',
+      date: new Date().toISOString(),
+      is_global: true  
+    });
+
+    if (response.data && response.data.certificate_url) {
+      window.open(response.data.certificate_url, '_blank');
+      
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      toast.innerHTML = '🎓 Certificat global généré avec succès !';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 5000);
+    }
+  } catch (error) {
+    console.error('Erreur génération certificat:', error);
+    generateLocalCertificate(examResultData, 'Formation Complète HTML, CSS & JavaScript');
+  }
+};
+  
+  
+ const generateLocalCertificate = (examResultData: any, courseName: string) => {
+  if (!user) return;
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  canvas.width = 1200;
+  canvas.height = 900;
+
+  
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  
+  ctx.strokeStyle = '#c9a84c';
+  ctx.lineWidth = 20;
+  ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
+
+  ctx.strokeStyle = '#d4b85a';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(60, 60, canvas.width - 120, canvas.height - 120);
+
+  
+  ctx.fillStyle = '#1a1a2e';
+  ctx.font = 'bold 56px serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('🎓 CERTIFICAT DE RÉUSSITE', canvas.width / 2, 140);
+
+  
+  ctx.fillStyle = '#4a4a6a';
+  ctx.font = '28px sans-serif';
+  ctx.fillText('Formation Complète en Développement Web', canvas.width / 2, 200);
+
+  
+  ctx.beginPath();
+  ctx.moveTo(200, 225);
+  ctx.lineTo(1000, 225);
+  ctx.strokeStyle = '#c9a84c';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  
+  ctx.fillStyle = '#4a4a6a';
+  ctx.font = '22px sans-serif';
+  ctx.fillText('Ce certificat atteste que', canvas.width / 2, 270);
+
+  
+  ctx.fillStyle = '#c9a84c';
+  ctx.font = 'bold 52px serif';
+  ctx.fillText(`${user.prenom || ''} ${user.nom || ''}`.trim() || user.email, canvas.width / 2, 350);
+
+ 
+  ctx.fillStyle = '#2d2d44';
+  ctx.font = '22px sans-serif';
+  ctx.fillText('a complété avec succès l\'ensemble des cours suivants :', canvas.width / 2, 420);
+
+ 
+  const videoCourseIds = [6, 11, 12, 8, 9, 10, 13, 14, 15, 16, 17, 18, 19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48];
+  
+  const coursesCompleted = courses.filter(c => videoCourseIds.includes(c.id));
+
+  
+  ctx.fillStyle = '#1a1a2e';
+  ctx.font = '18px sans-serif';
+  ctx.textAlign = 'left';
+  
+  const maxCourses = Math.min(coursesCompleted.length, 8);
+  const coursesToShow = coursesCompleted.slice(0, maxCourses);
+  
+  
+  ctx.fillStyle = '#4a4a6a';
+  ctx.font = 'bold 20px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('📚 Modules validés :', canvas.width / 2, 480);
+  
+  
+  ctx.textAlign = 'left';
+  const startY = 510;
+  const col1X = 200;
+  const col2X = 600;
+  const rowHeight = 35;
+  
+  const half = Math.ceil(coursesToShow.length / 2);
+  const col1Courses = coursesToShow.slice(0, half);
+  const col2Courses = coursesToShow.slice(half);
+  
+  ctx.fillStyle = '#2d2d44';
+  ctx.font = '16px sans-serif';
+  
+  col1Courses.forEach((course, idx) => {
+    const displayTitle = course.titre.length > 35 ? course.titre.substring(0, 35) + '...' : course.titre;
+    ctx.fillText(`✅ ${displayTitle}`, col1X, startY + idx * rowHeight);
+  });
+  
+  col2Courses.forEach((course, idx) => {
+    const displayTitle = course.titre.length > 35 ? course.titre.substring(0, 35) + '...' : course.titre;
+    ctx.fillText(`✅ ${displayTitle}`, col2X, startY + idx * rowHeight);
+  });
+
+  
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#2d2d44';
+  ctx.font = '20px sans-serif';
+  ctx.fillText(`Score final : ${examResultData.percentage.toFixed(1)}%`, canvas.width / 2, 680);
+
+  
+  const date = new Date().toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+  ctx.fillStyle = '#4a4a6a';
+  ctx.font = '18px sans-serif';
+  ctx.fillText(`Délivré le ${date}`, canvas.width / 2, 730);
+
+  
+  ctx.beginPath();
+  ctx.moveTo(350, 770);
+  ctx.lineTo(550, 770);
+  ctx.strokeStyle = '#1a1a2e';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.fillStyle = '#4a4a6a';
+  ctx.font = '16px sans-serif';
+  ctx.fillText('Signature du responsable pédagogique', 450, 800);
+
+  
+  ctx.fillStyle = '#c9a84c';
+  ctx.font = '70px sans-serif';
+  ctx.fillText('🎓', canvas.width / 2, 860);
+
+  
+  const link = document.createElement('a');
+  link.download = `certificat_${user.prenom || 'utilisateur'}_${user.nom || ''}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+
+  const toast = document.createElement('div');
+  toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+  toast.innerHTML = '🎓 Certificat global généré avec succès !';
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 5000);
+};
+
+
+  
+
+const getCourseCategories = () => {
+  return {
+    HTML: {
+      icon: '📄',
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-200',
+      courses: [
+        { id: 6, title: 'Formatage du Texte en HTML' },
+        { id: 11, title: 'Les Liens Hypertextes en HTML' },
+        { id: 12, title: 'Images en HTML' },
+        { id: 8, title: 'Formulaires HTML Avancés' },
+        { id: 13, title: 'Les Tableaux en HTML' },
+        { id: 14, title: 'HTML Head - Métadonnées' },
+        { id: 15, title: 'HTML Multimédia' },
+        { id: 9, title: 'HTML5 Sémantique' },
+      ]
+    },
+    CSS: {
+      icon: '🎨',
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-200',
+      courses: [
+        { id: 16, title: 'CSS Media Queries' },
+        { id: 17, title: 'CSS - Sélecteurs' },
+        { id: 18, title: 'CSS - Couleurs' },
+        { id: 19, title: 'CSS - Arrière-plans' },
+        { id: 20, title: 'CSS - Bordures' },
+        { id: 22, title: 'CSS - Marges' },
+        { id: 23, title: 'CSS - Padding' },
+        { id: 24, title: 'CSS - Texte' },
+        { id: 25, title: 'CSS - Polices' },
+        { id: 26, title: 'CSS - Liens' },
+        { id: 27, title: 'CSS - Listes' },
+        { id: 28, title: 'CSS - Tableaux' },
+        { id: 29, title: 'CSS - Display & Visibility' },
+        { id: 30, title: 'CSS - Positionnement' },
+        { id: 31, title: 'CSS - Overflow' },
+        { id: 32, title: 'CSS - Float' },
+        { id: 10, title: 'CSS Flexbox & Grid' },
+      ]
+    },
+    JavaScript: {
+      icon: '🚀',
+      color: 'text-yellow-600',
+      bgColor: 'bg-yellow-50',
+      borderColor: 'border-yellow-200',
+      courses: [
+        { id: 33, title: 'JavaScript - Introduction' },
+        { id: 34, title: 'JavaScript - Variables' },
+        { id: 35, title: 'JavaScript - Types de Données' },
+        { id: 36, title: 'JavaScript - Opérateurs' },
+        { id: 37, title: 'JavaScript - Conditions' },
+        { id: 38, title: 'JavaScript - Boucles' },
+        { id: 39, title: 'JavaScript - Chaînes' },
+        { id: 40, title: 'JavaScript - Nombres' },
+        { id: 41, title: 'JavaScript - Fonctions' },
+        { id: 42, title: 'JavaScript - Objets' },
+        { id: 43, title: 'JavaScript - Tableaux' },
+        { id: 44, title: 'JavaScript - Sets' },
+        { id: 45, title: 'JavaScript - Maps' },
+        { id: 46, title: 'JavaScript - Math' },
+        { id: 47, title: 'JavaScript - Regex' },
+        { id: 48, title: 'JavaScript - Events' },
+      ]
+    }
+  };
+};
+
+useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      setIsCategoryDropdownOpen(false);
+    }
+  };
+  document.addEventListener('mousedown', handleClickOutside);
+  return () => document.removeEventListener('mousedown', handleClickOutside);
+}, []);
+
+
+const getFilteredCourses = () => {
+  const categories = getCourseCategories();
+  const allVideoCourseIds = new Set<number>();
+  
+  
+  Object.values(categories).forEach(cat => {
+    cat.courses.forEach(c => allVideoCourseIds.add(c.id));
+  });
+
+  if (selectedCategory === 'all') {
+    return courses.filter(c => allVideoCourseIds.has(c.id));
+  }
+
+  const categoryData = categories[selectedCategory as keyof typeof categories];
+  if (!categoryData) return [];
+  
+  const categoryIds = new Set(categoryData.courses.map(c => c.id));
+  return courses.filter(c => categoryIds.has(c.id));
+};
+
+
+const getCourseIcon = (courseId: number): string => {
+  const categories = getCourseCategories();
+  for (const cat of Object.values(categories)) {
+    for (const c of cat.courses) {
+      if (c.id === courseId) {
+        if (courseId === 6) return '📝';
+        if (courseId === 11) return '🔗';
+        if (courseId === 12) return '🖼️';
+        if (courseId === 8) return '📝';
+        if (courseId === 9) return '🏗️';
+        if (courseId === 10) return '🎨';
+        if (courseId >= 17 && courseId <= 32) return '🎨';
+        if (courseId >= 33 && courseId <= 48) return '🚀';
+        return '🎬';
+      }
+    }
+  }
+  return '🎬';
+};
 
 
 function getDefaultOptionsForQuestion(question: string): Record<string, string> {
@@ -186,7 +498,7 @@ const analyzeMistakesAndRecommend = async (wrongQuestions: string[]) => {
   setLoadingRecommendations(true);
   
   try {
-    console.log(`🤖 Tuteur IA analyse ${wrongQuestions.length} erreur(s)...`);
+    console.log(` Tuteur IA analyse ${wrongQuestions.length} erreur(s)...`);
     
     
     const response = await bertRecommendationService.recommendCourses(
@@ -218,7 +530,7 @@ const analyzeMistakesAndRecommend = async (wrongQuestions: string[]) => {
       }
     }
   } catch (error) {
-    console.error('❌ Erreur recommandation IA:', error);
+    console.error(' Erreur recommandation IA:', error);
     
     
     const fallbackRecs = generateFallbackRecommendations(wrongQuestions);
@@ -723,24 +1035,32 @@ const submitExam = async () => {
     alert('Veuillez vous connecter');
     return;
   }
-  
+
+  if (!user?.id) {
+    alert('Utilisateur non identifié');
+    return;
+  }
+
   const answeredCount = Object.keys(examAnswers).length;
   if (answeredCount !== examQuestions.length) {
     alert(`Veuillez répondre à toutes les questions (${answeredCount}/${examQuestions.length})`);
     return;
   }
-  
+
   let totalScore = 0;
   let maxScore = 0;
   const answersList: any[] = [];
   const wrongQuestionsList: { question: string; questionId: number }[] = [];
 
+  console.log(`📝 Nombre de questions dans l'examen: ${examQuestions.length}`);
+
+  
   for (const q of examQuestions) {
-    maxScore += q.points;
+    maxScore += q.points || 10;
     const userAnswer = examAnswers[q.id];
     const isCorrect = userAnswer === q.reponse_correcte;
     if (isCorrect) {
-      totalScore += q.points;
+      totalScore += q.points || 10;
     } else {
       wrongQuestionsList.push({
         question: q.question,
@@ -748,7 +1068,7 @@ const submitExam = async () => {
       });
       console.log('❌ Erreur examen:', q.question);
     }
-    
+
     answersList.push({
       questionId: q.id,
       questionText: q.question,
@@ -758,43 +1078,68 @@ const submitExam = async () => {
       explanation: q.explication || ''
     });
   }
-  
+
   const percentage = (totalScore / maxScore) * 100;
   const passed = percentage >= 70;
-  
+
+  console.log(`📊 Résultat: Score=${totalScore}/${maxScore}, Pourcentage=${percentage.toFixed(1)}%, Passé=${passed}`);
+
+ 
   setExamResult({ score: totalScore, total: maxScore, percentage, passed, answers: answersList });
   setExamSubmitted(true);
-  
-  
-  if (wrongQuestionsList.length > 0 && user?.id && selectedCourse?.id) {
-    await saveMistakesToDB(user.id, selectedCourse.id, wrongQuestionsList);
-    await loadMistakesFromDB(user.id, selectedCourse.id);
-    
-    
-    const wrongQuestionTexts = wrongQuestionsList.map(w => w.question);
-    await analyzeMistakesAndRecommend(wrongQuestionTexts);
-  }
-  
+
   try {
-    await api.post('/results', {
-      utilisateur_id: user?.id,
-      cours_id: selectedCourse.id,
-      mode: 'video_exam',
-      score_quiz: percentage,
-      temps_passe: Math.floor(videoProgress),
-      taux_completion: videoProgress,
-      est_reussi: passed,
-      feedback: passed ? `Examen réussi! Score: ${percentage.toFixed(1)}%` : `Score: ${percentage.toFixed(1)}%`
-    });
     
-    let examMessage = `📝 Examen terminé!\nScore: ${percentage.toFixed(1)}%\n${passed ? '✅ Félicitations!' : '📚 Continuez à pratiquer!'}`;
-    if (wrongQuestionsList.length > 0) {
-      examMessage += `\n\n🤖 Tuteur IA: ${wrongQuestionsList.length} erreur(s) analysée(s).\nDes cours de révision vous sont recommandés.`;
+    const resultData = {
+      utilisateur_id: Number(user.id),  
+      cours_id: Number(selectedCourse.id),  
+      mode: 'video',  
+      score_quiz: Number(percentage.toFixed(2)),
+      temps_passe: Math.max(1, Math.floor(videoProgress / 2) || 1),
+      taux_completion: Number(videoProgress > 0 ? videoProgress : 100),
+      est_reussi: passed,
+      feedback: passed 
+        ? `Examen réussi! Score: ${percentage.toFixed(1)}%` 
+        : `Score: ${percentage.toFixed(1)}%`
+    };
+
+    console.log('📤 Envoi des données au backend:', JSON.stringify(resultData, null, 2));
+
+    const response = await api.post('/results', resultData);
+    console.log('✅ Résultat enregistré:', response.data);
+
+    
+    if (wrongQuestionsList.length > 0 && user?.id && selectedCourse?.id) {
+      await saveMistakesToDB(user.id, selectedCourse.id, wrongQuestionsList);
+      await loadMistakesFromDB(user.id, selectedCourse.id);
+      
+      const wrongQuestionTexts = wrongQuestionsList.map(w => w.question);
+      await analyzeMistakesAndRecommend(wrongQuestionTexts);
     }
-    alert(examMessage);
-  } catch (error) {
-    console.error('Erreur sauvegarde examen:', error);
-    alert('Erreur lors de l\'enregistrement de l\'examen');
+    
+    setShowRecommendations(true);
+
+    
+    let successMessage = `📝 Examen terminé!\nScore: ${percentage.toFixed(1)}%\n${passed ? '✅ Félicitations!' : '📚 Continuez à pratiquer!'}`;
+    if (wrongQuestionsList.length > 0) {
+      successMessage += `\n\n🤖 Tuteur IA: ${wrongQuestionsList.length} erreur(s) analysée(s).\nDes cours de révision vous sont recommandés.`;
+    }
+    alert(successMessage);
+
+  } catch (error: any) {
+    console.error(' Erreur:', error);
+    console.error(' Response:', error.response?.data);
+    console.error(' Status:', error.response?.status);
+
+    
+    if (error.response?.data?.detail) {
+      const detail = typeof error.response.data.detail === 'string' 
+        ? error.response.data.detail 
+        : JSON.stringify(error.response.data.detail);
+      alert(`Erreur: ${detail}`);
+    } else {
+      alert('Erreur lors de l\'enregistrement de l\'examen. Veuillez réessayer.');
+    }
   }
 };
 
@@ -813,9 +1158,10 @@ useEffect(() => {
     
     const timer = setTimeout(() => {
       if (mistakeQuestions.length > 0 && !showRecommendations) {
+       
         const toast = document.createElement('div');
         toast.className = 'fixed bottom-4 right-4 bg-indigo-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 cursor-pointer';
-        toast.innerHTML = '🤖 Tuteur IA: Cliquez pour voir les cours recommandés basés sur vos erreurs';
+        toast.innerHTML = '🤖 Tuteur IA: Cliquez pour voir les cours recommandés';
         toast.onclick = () => {
           analyzeMistakesAndRecommend(mistakeQuestions);
           toast.remove();
@@ -827,7 +1173,29 @@ useEffect(() => {
     
     return () => clearTimeout(timer);
   }
-}, [selectedCourse, mistakeQuestions, user?.id]);
+}, [selectedCourse?.id, mistakeQuestions.length, user?.id, showRecommendations]);
+
+
+useEffect(() => {
+  if (selectedCourse && selectedCourse.id && !examMode) {
+    
+    let isMounted = true;
+    
+    const loadData = async () => {
+      if (!isMounted) return;
+      await loadQuestionsForCourse(selectedCourse.id);
+      if (user?.id) {
+        await loadMistakesFromDB(user.id, selectedCourse.id);
+      }
+    };
+    
+    loadData();
+    
+    return () => {
+      isMounted = false;
+    };
+  }
+}, [selectedCourse?.id, examMode, user?.id]);
 
 const showMistakeStats = async () => {
   if (!user?.id) return;
@@ -1110,6 +1478,8 @@ ${mistakes.slice(0, 5).map((m, i) => `${i+1}. ${m.substring(0, 60)}...`).join('\
     description: "Apprenez la différence entre les gestionnaires d'événements (onclick) et les écouteurs d'événements (addEventListener) en JavaScript. Découvrez pourquoi les event listeners sont préférés pour les applications modernes."
   }
   };
+
+  
 
   const jsEventsChapters = [
   { time: "00:00", title: "Introduction aux événements", duration: "0:12" },
@@ -2583,9 +2953,9 @@ const semanticDefaultQuestions: Question[] = [
     }));
     
     await mistakeService.saveBatchMistakes(mistakesToSave);
-    console.log('✅ Erreurs sauvegardées en DB');
+    console.log(' Erreurs sauvegardées en DB');
   } catch (error) {
-    console.error('❌ Erreur sauvegarde DB:', error);
+    console.error(' Erreur sauvegarde DB:', error);
   }
 };
 
@@ -2595,18 +2965,23 @@ const loadMistakesFromDB = async (userId: number, courseId: number) => {
   try {
     const mistakes = await mistakeService.getMyMistakes(courseId, 'video', 30);
     const mistakeTexts = mistakes.map((m: any) => m.question_texte);
-    setMistakeQuestions(mistakeTexts);
-    console.log(`✅ ${mistakeTexts.length} erreurs chargées depuis la DB`);
+    
+    
+    if (mistakeTexts.length !== mistakeQuestions.length) {
+      setMistakeQuestions(mistakeTexts);
+    }
+    
+    console.log(` ${mistakeTexts.length} erreurs chargées depuis la DB`);
     return mistakeTexts;
   } catch (error) {
-    console.error('❌ Erreur chargement erreurs:', error);
+    console.error(' Erreur chargement erreurs:', error);
     return [];
   }
 };
 
 const generatePersonalizedQuiz = async () => {
   if (!selectedCourse || !user?.id) {
-    console.log('❌ Pas de cours sélectionné ou utilisateur non connecté');
+    console.log(' Pas de cours sélectionné ou utilisateur non connecté');
     return;
   }
   
@@ -2646,7 +3021,7 @@ const generatePersonalizedQuiz = async () => {
     await loadQuestionsForCourse(selectedCourse.id);
     
   } catch (error) {
-    console.error('❌ Erreur génération quiz personnalisé:', error);
+    console.error(' Erreur génération quiz personnalisé:', error);
     await loadQuestionsForCourse(selectedCourse.id);
   } finally {
     setGeneratingQuiz(false);
@@ -6854,12 +7229,12 @@ const generateFallbackQuestionsFromMistakes = (mistakes: string[]): Question[] =
       }
     }
     
-    console.log('📋 Utilisation des questions par défaut pour le cours', courseId);
+    console.log(' Utilisation des questions par défaut pour le cours', courseId);
     const defaultQs = defaultQuestions[courseId] || defaultQuestions[11];
     setQuestions(defaultQs);
     
   } catch (error) {
-    console.error('❌ Erreur chargement questions:', error);
+    console.error(' Erreur chargement questions:', error);
     const defaultQs = defaultQuestions[selectedCourse?.id || 11] || defaultQuestions[11];
     setQuestions(defaultQs);
   } finally {
@@ -6877,6 +7252,13 @@ const generateFallbackQuestionsFromMistakes = (mistakes: string[]): Question[] =
       setShowExplanation({});
       setQuizResultId(null);
       setVideoProgress(0);
+      setExamResult(null);
+      setExamAnswers({});
+      setVideoProgress(0);
+      setExamMode(false);
+      setExamSubmitted(false);
+       setShowRecommendations(false);
+       window.scrollTo({ top: 0, behavior: 'smooth' });
       await loadQuestionsForCourse(courseId);
     }
   };
@@ -6937,7 +7319,7 @@ const generateFallbackQuestionsFromMistakes = (mistakes: string[]): Question[] =
         question: q.question, 
         questionId: q.id 
       });
-      console.log('❌ Erreur enregistrée:', q.question);
+      console.log(' Erreur enregistrée:', q.question);
     }
     
     responses.push({
@@ -6948,7 +7330,7 @@ const generateFallbackQuestionsFromMistakes = (mistakes: string[]): Question[] =
     });
   }
 
-  console.log('📝 Total des erreurs:', wrongQuestionsList.length);
+  console.log(' Total des erreurs:', wrongQuestionsList.length);
 
   
   if (wrongQuestionsList.length > 0 && user?.id && selectedCourse?.id) {
@@ -7005,7 +7387,7 @@ const generateFallbackQuestionsFromMistakes = (mistakes: string[]): Question[] =
     }
     alert(successMessage);
   } catch (error: any) {
-    console.error('❌ Erreur:', error);
+    console.error(' Erreur:', error);
     alert(`Erreur: ${error.response?.data?.detail || 'Erreur inconnue'}`);
   }
 };
@@ -7186,6 +7568,41 @@ const loadRegularQuiz = async () => {
   }
 }, [selectedCourse, user?.id]);
 
+const updateLearningContext = useCallback(() => {
+  if (setLearningContextValue) {
+    setLearningContextValue({
+      generatePersonalizedQuiz: generatePersonalizedQuiz,
+      showTutorRecommendations: () => {
+        if (mistakeQuestions.length > 0) {
+          analyzeMistakesAndRecommend(mistakeQuestions);
+        } else {
+          alert('Aucune erreur enregistrée pour ce cours');
+        }
+      },
+      showMistakeStats: showMistakeStats,
+      generateBertQuiz: generateBertQuiz,
+      generateExam: generateFinalExam,
+      cancelExam: cancelExam,
+      isExamMode: examMode,
+      hasMistakes: mistakeQuestions.length > 0,
+      isGeneratingQuiz: generatingQuiz,
+      isGeneratingExam: generatingExam,
+      selectedCourseId: selectedCourse?.id
+    });
+  }
+}, [
+  selectedCourse?.id,  
+  mistakeQuestions.length,  
+  examMode,
+  generatingQuiz,
+  generatingExam,
+  setLearningContextValue
+]);
+
+useEffect(() => {
+  updateLearningContext();
+}, [updateLearningContext]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -7222,664 +7639,677 @@ const loadRegularQuiz = async () => {
   const currentVideoPoints = getVideoPointsForCourse(selectedCourse?.id || 11);
   const currentTranscript = getTranscriptForCourse(selectedCourse?.id || 11);
 
-  return (
-  <div className="flex min-h-screen bg-gray-100">
-   
-    <aside 
-      className={`fixed left-0 top-0 h-full bg-white shadow-xl z-30 transition-all duration-300 ${
-        sidebarOpen ? 'w-80' : 'w-16'
-      } overflow-y-auto`}
-    >
-     
-      <div className="sticky top-0 bg-white border-b p-4">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg hover:bg-gray-100 transition"
-          >
-            {sidebarOpen ? '◀' : '▶'}
-          </button>
-          {sidebarOpen && <h2 className="text-lg font-bold text-gray-800">🎬 Cours vidéo</h2>}
+ return (
+  <div className="min-h-screen bg-gray-100">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div className="space-y-8">
+        
+        {/* En-tête */}
+        <div className="bg-gradient-to-r from-red-500 to-red-700 rounded-2xl p-6 text-white">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">
+                {examMode ? '📝 Examen Final' : '🎬 Apprentissage par Vidéo'}
+              </h1>
+              <p className="opacity-90">
+                {examMode 
+                  ? `Évaluez vos connaissances sur ${selectedCourse?.titre}`
+                  : 'Apprenez HTML à travers des tutoriels vidéo interactifs'}
+              </p>
+            </div>
+            {!examMode && (
+              <div className="flex gap-2 w-full sm:w-auto">
+                <button
+                  onClick={generatePersonalizedQuiz}
+                  disabled={generatingQuiz || !selectedCourse}
+                  className="flex-1 sm:flex-none px-3 py-2 bg-green-600 rounded-lg hover:bg-green-700 transition text-sm flex items-center justify-center gap-1"
+                >
+                  {generatingQuiz ? '⏳' : '🎯'} Perso
+                </button>
+                <button
+                  onClick={generateBertQuiz}
+                  disabled={generatingQuiz || !selectedCourse}
+                  className="flex-1 sm:flex-none px-3 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition text-sm flex items-center justify-center gap-1"
+                >
+                  {generatingQuiz ? '⏳' : '🤖'} IA
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {sidebarOpen && (
-        <div className="p-5">
+         
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+          <h3 className="text-sm font-semibold text-gray-500 mb-3">📚 Sélectionner un cours vidéo</h3>
           
-          <div className="mb-4">
-            <input
-              type="text"
-              placeholder="🔍 Rechercher un cours..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 text-sm"
+          
+          <div className="flex flex-wrap gap-2 mb-4">
+            <button
+              onClick={() => setSelectedCategory('all')}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
+                selectedCategory === 'all'
+                  ? 'bg-gray-800 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              📚 Tous
+            </button>
+            {Object.entries(getCourseCategories()).map(([key, cat]) => (
+              <button
+                key={key}
+                onClick={() => setSelectedCategory(key)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
+                  selectedCategory === key
+                    ? `${cat.bgColor} ${cat.color} ring-2 ring-offset-1 ring-${cat.color.replace('text-', '')}`
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {cat.icon} {key}
+              </button>
+            ))}
+          </div>
+
+          
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-[300px] overflow-y-auto p-2">
+            {getFilteredCourses().map((course) => {
+              const isSelected = selectedCourse?.id === course.id;
+              const icon = getCourseIcon(course.id);
+              
+              
+              let categoryColor = 'text-gray-600';
+              const categories = getCourseCategories();
+              for (const [key, cat] of Object.entries(categories)) {
+                if (cat.courses.some(c => c.id === course.id)) {
+                  categoryColor = cat.color;
+                  break;
+                }
+              }
+              
+              return (
+                <button
+                  key={course.id}
+                  onClick={() => handleCourseChange(course.id)}
+                  className={`p-2 rounded-lg text-center transition-all duration-200 ${
+                    isSelected 
+                      ? 'bg-red-100 border-2 border-red-500 text-red-700' 
+                      : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-2 border-transparent'
+                  }`}
+                >
+                  <div className="text-2xl">{icon}</div>
+                  <div className={`text-xs font-medium truncate mt-1 ${isSelected ? 'text-red-700' : categoryColor}`}>
+                    {course.titre}
+                  </div>
+                  {isSelected && (
+                    <div className="text-[10px] text-red-500 mt-0.5">▶ En cours</div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          
+          {getFilteredCourses().length === 0 && (
+            <div className="text-center py-4 text-gray-500 text-sm">
+              Aucun cours disponible dans cette catégorie
+            </div>
+          )}
+        </div>
+
+
+        
+        {selectedCourse && (
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h2 className="text-xl font-bold text-gray-800">{currentVideoInfo?.title || selectedCourse.titre}</h2>
+            <p className="text-gray-600 mt-1">{currentVideoInfo?.description || selectedCourse.description || 'Apprenez les bases du HTML'}</p>
+            <div className="flex flex-wrap gap-4 mt-2">
+              <span className="text-sm text-gray-500">📊 Niveau: {selectedCourse.difficulte || 'Débutant'}</span>
+              <span className="text-sm text-gray-500">⏱️ Durée: {currentVideoInfo?.duration || '25'} min</span>
+            </div>
+          </div>
+        )}
+
+        
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
+          <h3 className="text-lg sm:text-xl font-bold mb-4">🎬 Lecteur Vidéo - {currentVideoInfo?.title}</h3>
+          
+          <div className="aspect-video bg-black rounded-lg overflow-hidden">
+            <iframe
+              src={embedUrl}
+              title="YouTube video player"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              className="w-full h-full"
             />
           </div>
 
-          
-          <nav className="space-y-1 max-h-[calc(100vh-200px)] overflow-y-auto">
-            {courses
-              .filter(course => 
-                course.id === 6 || course.id === 11 || course.id === 8 || course.id === 12 ||
-                course.id === 9 || course.id === 10 || course.id === 13 || course.id === 14 ||
-                course.id === 15 || course.id === 16 || course.id === 17 || course.id === 18 ||
-                course.id === 19 || course.id === 20 || course.id === 22 || course.id === 23 ||
-                course.id === 24 || course.id === 25 || course.id === 26 || course.id === 27 ||
-                course.id === 28 || course.id === 29 || course.id === 30 || course.id === 31 ||
-                course.id === 32 || course.id === 33 || course.id === 34 || course.id === 35 ||
-                course.id === 36 || course.id === 37 || course.id === 38 || course.id === 39 ||
-                course.id === 40 || course.id === 41 || course.id === 42 || course.id === 43 ||
-                course.id === 44 || course.id === 45 || course.id === 46 || course.id === 47 ||
-                course.id === 48
-              )
-              .filter(course => course.titre.toLowerCase().includes(searchTerm.toLowerCase()))
-              .map((course) => {
-                const isSelected = selectedCourse?.id === course.id;
-                let courseIcon = '🎬';
-                if (course.id === 6) courseIcon = '📝';
-                else if (course.id === 11) courseIcon = '🔗';
-                else if (course.id === 12) courseIcon = '🖼️';
-                else if (course.id === 8) courseIcon = '📝';
-                else if (course.id === 9) courseIcon = '🏗️';
-                else if (course.id === 10) courseIcon = '🎨';
-                else if (course.id >= 17 && course.id <= 32) courseIcon = '🎨';
-                else if (course.id >= 33 && course.id <= 48) courseIcon = '🚀';
-                
-                return (
-                  <button
-                    key={course.id}
-                    onClick={() => handleCourseChange(course.id)}
-                    className={`w-full text-left p-3 rounded-lg transition-all duration-200 ${
-                      isSelected 
-                        ? 'bg-red-50 border-l-4 border-red-500 text-red-700' 
-                        : 'hover:bg-gray-50 text-gray-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl">{courseIcon}</span>
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{course.titre}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {course.difficulte || 'Débutant'} • {course.duree || 20} min
-                        </p>
-                      </div>
-                      {isSelected && <span className="text-red-500 text-xs">▶</span>}
-                    </div>
-                  </button>
-                );
-              })}
-          </nav>
+         
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">⚡ Vitesse:</span>
+              <select
+                value={playbackSpeed}
+                onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
+                className="px-3 py-1 border rounded-lg text-sm flex-1"
+              >
+                <option value="0.5">0.5x</option>
+                <option value="0.75">0.75x</option>
+                <option value="1.0">1.0x</option>
+                <option value="1.25">1.25x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2.0">2.0x</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">🎬 Qualité:</span>
+              <select
+                value={quality}
+                onChange={(e) => setQuality(e.target.value)}
+                className="px-3 py-1 border rounded-lg text-sm flex-1"
+              >
+                <option value="360p">360p</option>
+                <option value="480p">480p</option>
+                <option value="720p">720p</option>
+                <option value="1080p">1080p</option>
+              </select>
+            </div>
+            <div className="text-sm text-gray-600 text-right flex items-center justify-end">
+              Progression: {Math.floor(videoProgress)}%
+            </div>
+          </div>
+        </div>
 
-          
-          <div className="mt-6 pt-4 border-t border-gray-100 space-y-2">
-            <button
-              onClick={generatePersonalizedQuiz}
-              disabled={generatingQuiz || !selectedCourse}
-              className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 text-sm"
-            >
-              {generatingQuiz ? '⏳ Génération...' : '🎯 Quiz Personnalisé'}
-            </button>
-           <button
-  onClick={generateBertQuiz}
-  disabled={generatingQuiz || !selectedCourse}
-  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
->
-  {generatingQuiz ? (
-    <>
-      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-      Génération...
-    </>
-  ) : (
-    <>🤖 Générer Quiz IA</>
-  )}
-</button>
+        
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-base sm:text-lg font-semibold">📊 Progression vidéo</h3>
+            <span className="text-sm text-gray-500">{videoProgress}%</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={videoProgress}
+            onChange={(e) => handleProgressChange(parseInt(e.target.value))}
+            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+          />
+          <button
+            onClick={() => handleProgressChange(100)}
+            className="mt-4 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm w-full sm:w-auto"
+          >
+            ✅ Marquer comme terminé
+          </button>
+        </div>
+
+        
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+          <h3 className="text-lg sm:text-xl font-bold mb-4">📋 Chapitres</h3>
+          <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            {currentChapters.map((chapter, idx) => (
+              <div key={idx} className="flex flex-col sm:flex-row items-start sm:items-center p-3 rounded-lg bg-gray-50 gap-2 sm:gap-0">
+                <div className="min-w-[60px] font-bold text-red-600 text-sm sm:text-base">{chapter.time}</div>
+                <div className="flex-1 ml-0 sm:ml-4 text-sm sm:text-base">{chapter.title}</div>
+                <div className="text-xs sm:text-sm text-gray-500">{chapter.duration}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+       
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+          <h3 className="text-lg sm:text-xl font-bold mb-4">📝 Points clés</h3>
+          <div className="space-y-3">
+            {currentVideoPoints.map((point, idx) => (
+              <div key={idx} className="border-b border-gray-100 pb-3 last:border-0">
+                <div className="font-semibold text-gray-800 text-sm sm:text-base">⏱️ {point.time} - {point.title}</div>
+                <p className="text-gray-600 text-xs sm:text-sm mt-1">{point.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+       
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+          <h3 className="text-lg sm:text-xl font-bold mb-4">📝 Transcription</h3>
+          <div className="bg-gray-50 rounded-lg p-4 max-h-[400px] overflow-y-auto">
+            {currentTranscript.map((segment, idx) => (
+              <div key={idx} className="p-3 border-b border-gray-200 last:border-0">
+                <div className="flex flex-col sm:flex-row items-start gap-2 sm:gap-3">
+                  <span className="min-w-[60px] font-medium text-red-600 text-sm">{segment.time}</span>
+                  <p className="flex-1 text-gray-700 text-sm sm:text-base">{segment.text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+          <h3 className="text-lg sm:text-xl font-bold mb-4">📓 Notes personnelles</h3>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Prenez des notes pendant le visionnage..."
+            className="w-full h-32 p-3 border rounded-lg resize-none focus:ring-2 focus:ring-red-500 text-sm"
+          />
+          <button
+            onClick={saveNotes}
+            className="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm w-full sm:w-auto"
+          >
+            💾 Sauvegarder les notes
+          </button>
+        </div>
+
+        
+        {showRecommendations && (
+          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-4 sm:p-6 text-white">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="text-2xl sm:text-3xl">🤖</div>
+                <div>
+                  <h3 className="text-lg sm:text-xl font-bold">Tuteur IA</h3>
+                  <p className="text-xs sm:text-sm opacity-90">Recommandations personnalisées basées sur vos erreurs</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRecommendations(false)}
+                className="text-white/70 hover:text-white transition text-xl"
+              >
+                ✕
+              </button>
+            </div>
             
-           
-  {!examMode ? (
-    <button
-      onClick={generateFinalExam}
-      disabled={generatingExam || !selectedCourse}
-      className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 text-sm mt-2"
-    >
-      {generatingExam ? '⏳ Génération...' : '📝 Examen Final'}
-    </button>
-  ) : (
-    <button
-      onClick={cancelExam}
-      className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition text-sm mt-2"
-    >
-      ❌ Annuler l'examen
-    </button>
-  )}
-  
-  
-  <button
-    onClick={showMistakeStats}
-    className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm mt-2"
-  >
-    📊 Statistiques d'erreurs
-  </button>
-
-  <button
-  onClick={async () => {
-    if (mistakeQuestions.length > 0) {
-      await analyzeMistakesAndRecommend(mistakeQuestions);
-    } else {
-      alert('Aucune erreur enregistrée pour ce cours');
-    }
-  }}
-  disabled={mistakeQuestions.length === 0}
-  className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 text-sm mt-2"
->
-  🤖 Tuteur IA - Recommandations
-</button>
-  
-  {mistakeQuestions.length > 0 && (
-    <div className="text-center text-xs text-orange-600 bg-orange-50 p-2 rounded-lg mt-2">
-      📝 {mistakeQuestions.length} erreur(s) enregistrée(s)
-    </div>
-  )}
-            {quizGenerationMode === 'personalized' && (
-              <div className="text-center text-xs text-green-600 bg-green-50 p-2 rounded-lg">
-                🎯 Mode personnalisé
+            {loadingRecommendations ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                <span className="ml-3 text-sm">Analyse de vos résultats en cours...</span>
+              </div>
+            ) : recommendations.length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-sm mb-2">
+                  🎯 Basé sur vos erreurs, voici les cours recommandés par notre IA :
+                </p>
+                {recommendations.map((rec, idx) => (
+                  <div 
+                    key={idx}
+                    onClick={() => navigateToRecommendedCourse(rec.cours_id)}
+                    className="bg-white/10 rounded-lg p-3 sm:p-4 cursor-pointer hover:bg-white/20 transition-all duration-200 group"
+                  >
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
+                      <div className="flex-1 w-full">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg sm:text-xl">
+                            {rec.direct_match ? '🎯' : '📚'}
+                          </span>
+                          <h4 className="font-semibold group-hover:underline text-sm sm:text-base">
+                            {rec.cours_titre}
+                          </h4>
+                        </div>
+                        <p className="text-xs sm:text-sm opacity-80 mt-1">{rec.description}</p>
+                        {rec.nb_erreurs > 0 && (
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                            <span className="text-xs bg-yellow-500/30 px-2 py-0.5 rounded-full">
+                              🔴 {rec.nb_erreurs} erreur(s) liée(s)
+                            </span>
+                            <span className="text-xs bg-green-500/30 px-2 py-0.5 rounded-full">
+                              Score: {(rec.score * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right self-end sm:self-center">
+                        <div className="bg-white/20 rounded-full w-8 h-8 flex items-center justify-center group-hover:bg-white/30 transition">
+                          ➡️
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <p className="text-sm">Aucune recommandation disponible pour le moment.</p>
+                <p className="text-xs opacity-70 mt-1">Continuez à faire des quiz pour obtenir des suggestions personnalisées.</p>
               </div>
             )}
           </div>
-        </div>
-      )}
-    </aside>
-
-
-<main className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'ml-80' : 'ml-16'}`}>
-  <div className="max-w-6xl mx-auto py-8 px-6 space-y-8">
-   
-    <div className="bg-gradient-to-r from-red-500 to-red-700 rounded-2xl p-6 text-white">
-      <h1 className="text-3xl font-bold mb-2">🎬 Apprentissage par Vidéo</h1>
-      <p className="opacity-90">Apprenez HTML à travers des tutoriels vidéo interactifs</p>
-    </div>
-
-    
-    {selectedCourse && (
-      <div className="bg-white rounded-xl shadow-md p-6">
-        <h2 className="text-xl font-bold text-gray-800">{currentVideoInfo?.title || selectedCourse.titre}</h2>
-        <p className="text-gray-600 mt-1">{currentVideoInfo?.description || selectedCourse.description || 'Apprenez les bases du HTML'}</p>
-        <div className="flex gap-4 mt-2">
-          <span className="text-sm text-gray-500">📊 Niveau: {selectedCourse.difficulte || 'Débutant'}</span>
-          <span className="text-sm text-gray-500">⏱️ Durée: {currentVideoInfo?.duration || '25'} min</span>
-        </div>
-      </div>
-    )}
-
-    
-    <div className="bg-white rounded-xl shadow-lg p-8">
-      <h3 className="text-xl font-bold mb-4">🎬 Lecteur Vidéo - {currentVideoInfo?.title}</h3>
-      
-      <div className="aspect-video bg-black rounded-lg overflow-hidden">
-        <iframe
-          src={embedUrl}
-          title="YouTube video player"
-          frameBorder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-          className="w-full h-full"
-        />
-      </div>
-
-     
-      <div className="mt-4 grid grid-cols-3 gap-4">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600">⚡ Vitesse:</span>
-          <select
-            value={playbackSpeed}
-            onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
-            className="px-3 py-1 border rounded-lg text-sm"
-          >
-            <option value="0.5">0.5x</option>
-            <option value="0.75">0.75x</option>
-            <option value="1.0">1.0x</option>
-            <option value="1.25">1.25x</option>
-            <option value="1.5">1.5x</option>
-            <option value="2.0">2.0x</option>
-          </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600">🎬 Qualité:</span>
-          <select
-            value={quality}
-            onChange={(e) => setQuality(e.target.value)}
-            className="px-3 py-1 border rounded-lg text-sm"
-          >
-            <option value="360p">360p</option>
-            <option value="480p">480p</option>
-            <option value="720p">720p</option>
-            <option value="1080p">1080p</option>
-          </select>
-        </div>
-        <div className="text-sm text-gray-600 text-right">
-          Progression: {Math.floor(videoProgress)}%
-        </div>
-      </div>
-    </div>
-
-    
-    <div className="bg-white rounded-xl shadow-md p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">📊 Progression vidéo</h3>
-        <span className="text-sm text-gray-500">{videoProgress}%</span>
-      </div>
-      <input
-        type="range"
-        min="0"
-        max="100"
-        value={videoProgress}
-        onChange={(e) => handleProgressChange(parseInt(e.target.value))}
-        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-      />
-      <button
-        onClick={() => handleProgressChange(100)}
-        className="mt-4 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
-      >
-        ✅ Marquer comme terminé
-      </button>
-    </div>
-
-    
-    <div className="bg-white rounded-xl shadow-md p-6">
-      <h3 className="text-xl font-bold mb-4">📋 Chapitres</h3>
-      <div className="space-y-2">
-        {currentChapters.map((chapter, idx) => (
-          <div key={idx} className="flex items-center p-3 rounded-lg bg-gray-50">
-            <div className="min-w-[60px] font-bold text-red-600">{chapter.time}</div>
-            <div className="flex-1 ml-4">{chapter.title}</div>
-            <div className="text-sm text-gray-500">{chapter.duration}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-
-    
-    <div className="bg-white rounded-xl shadow-md p-6">
-      <h3 className="text-xl font-bold mb-4">📝 Points clés</h3>
-      <div className="space-y-2">
-        {currentVideoPoints.map((point, idx) => (
-          <div key={idx} className="border-b border-gray-100 pb-3 last:border-0">
-            <div className="font-semibold text-gray-800">⏱️ {point.time} - {point.title}</div>
-            <p className="text-gray-600 text-sm mt-1">{point.description}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-
-    
-    <div className="bg-white rounded-xl shadow-md p-6">
-      <h3 className="text-xl font-bold mb-4">📝 Transcription</h3>
-      <div className="bg-gray-50 rounded-lg p-4 max-h-[400px] overflow-y-auto">
-        {currentTranscript.map((segment, idx) => (
-          <div key={idx} className="p-3 border-b border-gray-200 last:border-0">
-            <div className="flex items-start gap-3">
-              <span className="min-w-[60px] font-medium text-red-600">{segment.time}</span>
-              <p className="flex-1 text-gray-700">{segment.text}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-
-    
-    <div className="bg-white rounded-xl shadow-md p-6">
-      <h3 className="text-xl font-bold mb-4">📓 Notes personnelles</h3>
-      <textarea
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder="Prenez des notes pendant le visionnage..."
-        className="w-full h-32 p-3 border rounded-lg resize-none focus:ring-2 focus:ring-red-500"
-      />
-      <button
-        onClick={saveNotes}
-        className="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
-      >
-        💾 Sauvegarder les notes
-      </button>
-    </div>
-
-    
-{showRecommendations && (
-  <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-6 text-white">
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-3">
-        <div className="text-3xl">🤖</div>
-        <div>
-          <h3 className="text-xl font-bold">Tuteur IA</h3>
-          <p className="text-sm opacity-90">Recommandations personnalisées basées sur vos erreurs</p>
-        </div>
-      </div>
-      <button
-        onClick={() => setShowRecommendations(false)}
-        className="text-white/70 hover:text-white transition"
-      >
-        ✕
-      </button>
-    </div>
-    
-    {loadingRecommendations ? (
-      <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-        <span className="ml-3">Analyse de vos résultats en cours...</span>
-      </div>
-    ) : recommendations.length > 0 ? (
-      <div className="space-y-3">
-        <p className="text-sm mb-2">
-          🎯 Basé sur vos erreurs, voici les cours recommandés par notre IA :
-        </p>
-        {recommendations.map((rec, idx) => (
-          <div 
-            key={idx}
-            onClick={() => navigateToRecommendedCourse(rec.cours_id)}
-            className="bg-white/10 rounded-lg p-4 cursor-pointer hover:bg-white/20 transition-all duration-200 group"
-          >
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">
-                    {rec.direct_match ? '🎯' : '📚'}
-                  </span>
-                  <h4 className="font-semibold group-hover:underline">
-                    {rec.cours_titre}
-                  </h4>
-                </div>
-                <p className="text-sm opacity-80 mt-1">{rec.description}</p>
-                {rec.nb_erreurs > 0 && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-xs bg-yellow-500/30 px-2 py-0.5 rounded-full">
-                      🔴 {rec.nb_erreurs} erreur(s) liée(s)
-                    </span>
-                    <span className="text-xs bg-green-500/30 px-2 py-0.5 rounded-full">
-                      Score de pertinence: {(rec.score * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div className="text-right">
-                <div className="bg-white/20 rounded-full w-8 h-8 flex items-center justify-center group-hover:bg-white/30 transition">
-                  ➡️
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    ) : (
-      <div className="text-center py-6">
-        <p className="text-sm">Aucune recommandation disponible pour le moment.</p>
-        <p className="text-xs opacity-70 mt-1">Continuez à faire des quiz pour obtenir des suggestions personnalisées.</p>
-      </div>
-    )}
-  </div>
-)}
-
-    
-    {!examMode ? (
-      
-      <div className="bg-gradient-to-r from-purple-500 to-purple-700 rounded-xl p-8 text-white">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-2xl font-bold">🎯 Quiz de compréhension</h3>
-          {quizGenerationMode === 'personalized' && (
-            <span className="text-xs bg-green-500 px-3 py-1 rounded-full">Personnalisé</span>
-          )}
-        </div>
-        <p className="mb-6">Testez vos connaissances sur {selectedCourse?.titre}</p>
-
-       
-        {mistakeQuestions.length > 0 && !quizSubmitted && (
-          <div className="mb-4 p-2 bg-yellow-500/30 rounded-lg text-center">
-            <span className="text-sm">📝 {mistakeQuestions.length} erreur(s) enregistrée(s) pour ce cours</span>
-          </div>
         )}
 
-        {loadingQuestions ? (
-          <div className="text-center py-8">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-2"></div>
-            <p>Chargement des questions...</p>
-          </div>
-        ) : questions.length > 0 ? (
-          !quizSubmitted ? (
-            <>
-              {questions.map((q, idx) => (
-                <div key={q.id} className="bg-white/10 rounded-lg p-4 mb-4">
-                  <p className="font-semibold mb-3">
-                    Question {idx + 1} ({q.points} points - {q.difficulte})
-                  </p>
-                  <p className="mb-3">{q.question}</p>
-                  <div className="space-y-2">
-                    {Object.entries(q.options).map(([key, value]) => (
-                      <label key={key} className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="radio"
-                          name={`question_${q.id}`}
-                          value={key}
-                          checked={userAnswers[q.id] === key}
-                          onChange={() => handleAnswerSelect(q.id, key)}
-                          className="w-4 h-4"
-                        />
-                        <span>{key}: {value}</span>
-                      </label>
-                    ))}
-                  </div>
-                  <button
-                    onClick={() => toggleExplanation(q.id)}
-                    className="mt-3 text-sm text-purple-200 hover:text-white"
-                  >
-                    💡 Voir l'explication
-                  </button>
-                  {showExplanation[q.id] && (
-                    <div className="mt-2 p-2 bg-white/20 rounded text-sm">
-                      {q.explication}
+        
+        {!examMode ? (
+         
+          <div className="bg-gradient-to-r from-purple-500 to-purple-700 rounded-xl p-4 sm:p-6 md:p-8 text-white">
+            <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+              <h3 className="text-xl sm:text-2xl font-bold">🎯 Quiz de compréhension</h3>
+              {quizGenerationMode === 'personalized' && (
+                <span className="text-xs bg-green-500 px-3 py-1 rounded-full">Personnalisé</span>
+              )}
+            </div>
+            <p className="mb-6 text-sm sm:text-base">Testez vos connaissances sur {selectedCourse?.titre}</p>
+
+            {mistakeQuestions.length > 0 && !quizSubmitted && (
+              <div className="mb-4 p-2 bg-yellow-500/30 rounded-lg text-center">
+                <span className="text-sm">📝 {mistakeQuestions.length} erreur(s) enregistrée(s) pour ce cours</span>
+              </div>
+            )}
+
+            {loadingQuestions ? (
+              <div className="text-center py-8">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-2"></div>
+                <p>Chargement des questions...</p>
+              </div>
+            ) : questions.length > 0 ? (
+              !quizSubmitted ? (
+                <>
+                  {questions.map((q, idx) => (
+                    <div key={q.id} className="bg-white/10 rounded-lg p-4 mb-4">
+                      <p className="font-semibold mb-3 text-sm sm:text-base">
+                        Question {idx + 1} ({q.points} points - {q.difficulte})
+                      </p>
+                      <p className="mb-3 text-sm sm:text-base">{q.question}</p>
+                      <div className="space-y-2">
+                        {Object.entries(q.options).map(([key, value]) => (
+                          <label key={key} className="flex items-start gap-3 cursor-pointer text-sm sm:text-base">
+                            <input
+                              type="radio"
+                              name={`question_${q.id}`}
+                              value={key}
+                              checked={userAnswers[q.id] === key}
+                              onChange={() => handleAnswerSelect(q.id, key)}
+                              className="w-4 h-4 mt-1 flex-shrink-0"
+                            />
+                            <span className="break-words">{key}: {value}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => toggleExplanation(q.id)}
+                        className="mt-3 text-sm text-purple-200 hover:text-white"
+                      >
+                        💡 Voir l'explication
+                      </button>
+                      {showExplanation[q.id] && (
+                        <div className="mt-2 p-2 bg-white/20 rounded text-sm">
+                          {q.explication}
+                        </div>
+                      )}
                     </div>
+                  ))}
+                  <button
+                    onClick={handleSubmitQuiz}
+                    disabled={Object.keys(userAnswers).length !== questions.length || !isAuthenticated}
+                    className="w-full mt-4 px-6 py-3 bg-white text-purple-600 rounded-lg font-semibold hover:bg-gray-100 transition disabled:opacity-50 text-sm sm:text-base"
+                  >
+                    📤 Soumettre le quiz
+                  </button>
+                  {Object.keys(userAnswers).length !== questions.length && (
+                    <p className="text-sm text-purple-200 mt-2 text-center">
+                      ⚠️ Veuillez répondre à toutes les questions ({Object.keys(userAnswers).length}/{questions.length})
+                    </p>
                   )}
+                  {!isAuthenticated && (
+                    <p className="text-sm text-yellow-200 mt-2 text-center">
+                      ⚠️ Connectez-vous pour enregistrer vos résultats
+                    </p>
+                  )}
+                </>
+              ) : (
+                <div className="bg-white/10 rounded-lg p-6 text-center">
+                  <div className="text-5xl mb-4">🎉</div>
+                  <h4 className="text-xl sm:text-2xl font-bold mb-2">Résultats du quiz</h4>
+                  <p className="text-2xl sm:text-3xl font-bold mb-2">{quizScore.toFixed(1)}%</p>
+                  <p className="mb-4 text-sm sm:text-base">
+                    {quizScore >= 70 ? '✅ Félicitations !' : '⚠️ Revoyez la leçon et réessayez.'}
+                  </p>
+                  {quizResultId && (
+                    <p className="text-sm mb-4">Résultat enregistré (ID: {quizResultId})</p>
+                  )}
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    <button
+                      onClick={resetQuiz}
+                      className="px-4 sm:px-6 py-2 bg-white text-purple-600 rounded-lg hover:bg-gray-100 text-sm sm:text-base"
+                    >
+                      🔄 Recommencer le quiz
+                    </button>
+                    <button
+                      onClick={generatePersonalizedQuiz}
+                      disabled={generatingQuiz}
+                      className="px-4 sm:px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm sm:text-base"
+                    >
+                      {generatingQuiz ? '⏳...' : '🎯 Quiz personnalisé'}
+                    </button>
+                  </div>
                 </div>
-              ))}
-              <button
-                onClick={handleSubmitQuiz}
-                disabled={Object.keys(userAnswers).length !== questions.length || !isAuthenticated}
-                className="w-full mt-4 px-6 py-3 bg-white text-purple-600 rounded-lg font-semibold hover:bg-gray-100 transition disabled:opacity-50"
-              >
-                📤 Soumettre le quiz
-              </button>
-              {Object.keys(userAnswers).length !== questions.length && (
-                <p className="text-sm text-purple-200 mt-2 text-center">
-                  ⚠️ Veuillez répondre à toutes les questions ({Object.keys(userAnswers).length}/{questions.length})
-                </p>
-              )}
-              {!isAuthenticated && (
-                <p className="text-sm text-yellow-200 mt-2 text-center">
-                  ⚠️ Connectez-vous pour enregistrer vos résultats
-                </p>
-              )}
-            </>
-          ) : (
-            <div className="bg-white/10 rounded-lg p-6 text-center">
-              <div className="text-5xl mb-4">🎉</div>
-              <h4 className="text-2xl font-bold mb-2">Résultats du quiz</h4>
-              <p className="text-3xl font-bold mb-2">{quizScore.toFixed(1)}%</p>
-              <p className="mb-4">
-                {quizScore >= 70 ? '✅ Félicitations !' : '⚠️ Revoyez la leçon et réessayez.'}
-              </p>
-              {quizResultId && (
-                <p className="text-sm mb-4">Résultat enregistré (ID: {quizResultId})</p>
-              )}
-              <div className="flex flex-wrap gap-2 justify-center">
-                <button
-                  onClick={resetQuiz}
-                  className="px-6 py-2 bg-white text-purple-600 rounded-lg hover:bg-gray-100"
-                >
-                  🔄 Recommencer le quiz
-                </button>
+              )
+            ) : (
+              <div className="text-center py-8 bg-white/10 rounded-lg">
+                <p>📝 Aucune question disponible pour ce cours.</p>
                 <button
                   onClick={generatePersonalizedQuiz}
                   disabled={generatingQuiz}
-                  className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                  className="mt-4 px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm sm:text-base"
                 >
-                  {generatingQuiz ? '⏳...' : '🎯 Quiz personnalisé'}
+                  {generatingQuiz ? '⏳...' : '🎯 Générer quiz personnalisé'}
                 </button>
               </div>
-            </div>
-          )
-        ) : (
-          <div className="text-center py-8 bg-white/10 rounded-lg">
-            <p>📝 Aucune question disponible pour ce cours.</p>
-            <button
-              onClick={generatePersonalizedQuiz}
-              disabled={generatingQuiz}
-              className="mt-4 px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-            >
-              {generatingQuiz ? '⏳...' : '🎯 Générer quiz personnalisé'}
-            </button>
-          </div>
-        )}
-      </div>
-    ) : (
-      
-      <div className="bg-gradient-to-r from-indigo-500 to-indigo-700 rounded-xl p-8 text-white">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-2xl font-bold">📝 Examen Final</h3>
-          <button
-            onClick={cancelExam}
-            className="px-3 py-1 bg-white/20 rounded-lg hover:bg-white/30 transition text-sm"
-          >
-            ✕ Retour au quiz
-          </button>
-        </div>
-        <p className="mb-2">Cours: {selectedCourse?.titre}</p>
-        <p className="text-sm mb-6">Score minimum requis: 70%</p>
-
-        {generatingExam ? (
-          <div className="text-center py-12">
-            <div className="text-4xl mb-4">⏳</div>
-            <p>Génération de votre examen...</p>
-          </div>
-        ) : examSubmitted && examResult ? (
-          <div className="space-y-6">
-            <div className="bg-white/10 rounded-lg p-6 text-center">
-              <div className="text-6xl mb-4">{examResult.passed ? '🎓' : '📚'}</div>
-              <h4 className="text-2xl font-bold mb-2">Résultat de l'examen</h4>
-              <p className="text-5xl font-bold mb-2">{examResult.percentage.toFixed(1)}%</p>
-              <p className="mb-4">
-                {examResult.passed 
-                  ? '✅ Félicitations ! Vous avez réussi l\'examen.' 
-                  : '⚠️ Vous n\'avez pas atteint le seuil de réussite (70%).'}
-              </p>
-              <p className="text-sm">Score: {examResult.score} / {examResult.total} points</p>
-            </div>
-
-            {examResult.answers.filter((a: any) => !a.isCorrect).length > 0 && (
-              <div className="bg-yellow-500/20 rounded-lg p-4">
-                <h4 className="font-bold mb-3">
-                  📊 Analyse des erreurs ({examResult.answers.filter((a: any) => !a.isCorrect).length})
-                </h4>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {examResult.answers.filter((a: any) => !a.isCorrect).map((answer: any, idx: number) => (
-                    <div key={idx} className="bg-white/10 rounded p-2 text-sm">
-                      <p className="font-semibold">❌ {answer.questionText.substring(0, 80)}...</p>
-                      <p>Votre réponse: {answer.selectedAnswer} | Bonne réponse: {answer.correctAnswer}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
             )}
-
-            <div className="flex gap-3">
+          </div>
+        ) : (
+         
+          <div className="bg-gradient-to-r from-indigo-500 to-indigo-700 rounded-xl p-4 sm:p-6 md:p-8 text-white">
+            <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+              <h3 className="text-xl sm:text-2xl font-bold">📝 Examen Final</h3>
               <button
                 onClick={cancelExam}
-                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
+                className="px-3 py-1 bg-white/20 rounded-lg hover:bg-white/30 transition text-sm"
               >
-                🔄 Retour aux quiz
-              </button>
-              <button
-                onClick={() => {
-                  setExamSubmitted(false);
-                  setExamResult(null);
-                  generateFinalExam();
-                }}
-                className="flex-1 px-4 py-2 bg-white text-indigo-600 rounded-lg font-semibold hover:bg-gray-100 transition"
-              >
-                🔁 Recommencer l'examen
+                ✕ Retour au quiz
               </button>
             </div>
-          </div>
-        ) : (
-          <>
-            <p className="text-sm mb-4">L'examen contient {examQuestions.length} questions.</p>
-            <div className="max-h-[500px] overflow-y-auto space-y-4">
-              {examQuestions.map((q, idx) => (
-                <div key={q.id} className="bg-white/10 rounded-lg p-4">
-                  <p className="font-semibold mb-3">
-                    Question {idx + 1} ({q.points} points - {q.difficulte})
-                  </p>
-                  <p className="mb-3">{q.question}</p>
-                  <div className="space-y-2">
-                    {Object.entries(q.options).map(([key, value]) => (
-                      <label key={key} className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="radio"
-                          name={`exam_question_${q.id}`}
-                          value={key}
-                          checked={examAnswers[q.id] === key}
-                          onChange={() => setExamAnswers(prev => ({ ...prev, [q.id]: key }))}
-                          className="w-4 h-4"
-                        />
-                        <span>{key}: {value}</span>
-                      </label>
-                    ))}
-                  </div>
+            <p className="mb-2 text-sm sm:text-base">Cours: {selectedCourse?.titre}</p>
+            <p className="text-sm mb-6">Score minimum requis: 70%</p>
+
+            {generatingExam ? (
+  <div className="text-center py-12">
+    <div className="text-4xl mb-4">⏳</div>
+    <p>Génération de votre examen...</p>
+  </div>
+) : examSubmitted && examResult ? (
+  <div className="space-y-6">
+   
+    <div className={`rounded-lg p-6 text-center ${
+      examResult.passed 
+        ? 'bg-green-500/30' 
+        : 'bg-red-500/30'
+    }`}>
+      <div className="text-6xl mb-4">{examResult.passed ? '🎓' : '📚'}</div>
+      <h4 className="text-xl sm:text-2xl font-bold mb-2">Résultat de l'examen</h4>
+      <p className="text-4xl sm:text-5xl font-bold mb-2">{examResult.percentage.toFixed(1)}%</p>
+      <p className="mb-4 text-sm sm:text-base">
+        {examResult.passed 
+          ? '✅ Félicitations ! Vous avez réussi l\'examen.' 
+          : '⚠️ Vous n\'avez pas atteint le seuil de réussite (70%).'}
+      </p>
+      <p className="text-sm">Score: {examResult.score} / {examResult.total} points</p>
+    </div>
+
+   
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="bg-white/10 rounded-lg p-3 text-center">
+        <div className="text-2xl font-bold text-green-400">
+          {examResult.answers.filter((a: any) => a.isCorrect).length}
+        </div>
+        <div className="text-xs text-white/70">✅ Réponses correctes</div>
+      </div>
+      <div className="bg-white/10 rounded-lg p-3 text-center">
+        <div className="text-2xl font-bold text-red-400">
+          {examResult.answers.filter((a: any) => !a.isCorrect).length}
+        </div>
+        <div className="text-xs text-white/70">❌ Réponses incorrectes</div>
+      </div>
+      <div className="bg-white/10 rounded-lg p-3 text-center">
+        <div className="text-2xl font-bold text-purple-400">
+          {examResult.answers.length}
+        </div>
+        <div className="text-xs text-white/70">📝 Total questions</div>
+      </div>
+    </div>
+
+    
+    {examResult.answers.filter((a: any) => !a.isCorrect).length > 0 && (
+      <div className="bg-yellow-500/20 rounded-lg p-4">
+        <h4 className="font-bold mb-3 text-sm sm:text-base">
+          📊 Analyse des erreurs ({examResult.answers.filter((a: any) => !a.isCorrect).length})
+        </h4>
+        <div className="space-y-2 max-h-60 overflow-y-auto">
+          {examResult.answers.filter((a: any) => !a.isCorrect).map((answer: any, idx: number) => (
+            <div key={idx} className="bg-white/10 rounded p-2 text-xs sm:text-sm">
+              <p className="font-semibold">❌ {answer.questionText}</p>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <div>
+                  <span className="text-red-300">Votre réponse:</span>
+                  <p className="font-mono">{answer.selectedAnswer || 'Non répondue'}</p>
                 </div>
-              ))}
+                <div>
+                  <span className="text-green-300">Bonne réponse:</span>
+                  <p className="font-mono">{answer.correctAnswer}</p>
+                </div>
+              </div>
+              {answer.explanation && (
+                <p className="text-xs text-blue-200 mt-1">💡 {answer.explanation}</p>
+              )}
             </div>
-            <button
-              onClick={submitExam}
-              disabled={Object.keys(examAnswers).length !== examQuestions.length}
-              className="w-full mt-6 px-6 py-3 bg-white text-indigo-600 rounded-lg font-semibold hover:bg-gray-100 transition disabled:opacity-50"
-            >
-              📤 Soumettre l'examen
-            </button>
-            {Object.keys(examAnswers).length !== examQuestions.length && (
-              <p className="text-sm text-yellow-200 mt-2 text-center">
-                ⚠️ {Object.keys(examAnswers).length}/{examQuestions.length} questions répondues
-              </p>
-            )}
-          </>
-        )}
+          ))}
+        </div>
       </div>
     )}
 
     
-    <div className="grid grid-cols-4 gap-4">
+    <div className="flex flex-col sm:flex-row gap-3">
       <button
-        onClick={() => window.location.href = '/courses'}
-        className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+        onClick={cancelExam}
+        className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition text-sm sm:text-base"
       >
-        📚 Catalogue
+        🔄 Retour aux quiz
       </button>
       <button
-        onClick={() => window.location.href = '/learning/audio'}
-        className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+        onClick={() => {
+          setExamSubmitted(false);
+          setExamResult(null);
+          generateFinalExam();
+        }}
+        className="flex-1 px-4 py-2 bg-white text-indigo-600 rounded-lg font-semibold hover:bg-gray-100 transition text-sm sm:text-base"
       >
-        🔊 Audio
-      </button>
-      <button
-        onClick={() => window.location.href = '/learning/text'}
-        className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-      >
-        📖 Texte
-      </button>
-      <button
-        onClick={() => window.location.href = '/'}
-        className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-      >
-        🏠 Accueil
+        🔁 Recommencer l'examen
       </button>
     </div>
+
+   
+    {examResult.passed && (
+      <div className="mt-4 p-4 bg-gradient-to-r from-yellow-400/30 to-amber-400/30 rounded-xl border-2 border-yellow-400/50">
+        <p className="text-center text-sm text-white/90 mb-3">
+          🎉 Félicitations ! Vous avez réussi l'examen. Vous pouvez maintenant générer votre certificat de formation complète.
+        </p>
+        <button
+          onClick={() => generateCertificate(examResult, selectedCourse?.titre || 'Cours')}
+          className="w-full px-6 py-4 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 text-white rounded-lg font-bold hover:from-yellow-500 hover:via-yellow-600 hover:to-yellow-700 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-3 text-lg"
+        >
+          <span className="text-3xl animate-bounce">🎓</span>
+          Générer mon certificat global
+          <span className="text-sm opacity-80">📄</span>
+        </button>
+        <p className="text-xs text-white/60 text-center mt-2">
+          Ce certificat atteste de la réussite de l'ensemble de la formation
+        </p>
+      </div>
+    )}
   </div>
-</main>
+) : (
+  
+  <>
+    <p className="text-sm mb-4">L'examen contient {examQuestions.length} questions.</p>
+    <div className="max-h-[500px] overflow-y-auto space-y-4">
+      {examQuestions.map((q, idx) => (
+        <div key={q.id} className="bg-white/10 rounded-lg p-4">
+          <p className="font-semibold mb-3 text-sm sm:text-base">
+            Question {idx + 1} ({q.points} points - {q.difficulte})
+          </p>
+          <p className="mb-3 text-sm sm:text-base">{q.question}</p>
+          <div className="space-y-2">
+            {Object.entries(q.options).map(([key, value]) => (
+              <label key={key} className="flex items-start gap-3 cursor-pointer text-sm sm:text-base">
+                <input
+                  type="radio"
+                  name={`exam_question_${q.id}`}
+                  value={key}
+                  checked={examAnswers[q.id] === key}
+                  onChange={() => setExamAnswers(prev => ({ ...prev, [q.id]: key }))}
+                  className="w-4 h-4 mt-1 flex-shrink-0"
+                />
+                <span className="break-words">{key}: {value}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+    <button
+      onClick={submitExam}
+      disabled={Object.keys(examAnswers).length !== examQuestions.length}
+      className="w-full mt-6 px-6 py-3 bg-white text-indigo-600 rounded-lg font-semibold hover:bg-gray-100 transition disabled:opacity-50 text-sm sm:text-base"
+    >
+      📤 Soumettre l'examen
+    </button>
+    {Object.keys(examAnswers).length !== examQuestions.length && (
+      <p className="text-xs sm:text-sm text-yellow-200 mt-2 text-center">
+        ⚠️ {Object.keys(examAnswers).length}/{examQuestions.length} questions répondues
+      </p>
+    )}
+  </>
+)}
+          </div>
+        )}
+
+        
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+  <button
+    onClick={() => navigate('/courses')}
+    className="px-3 sm:px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition text-xs sm:text-sm"
+  >
+    📚 Catalogue
+  </button>
+  <button
+    onClick={() => {
+      if (selectedCourse) {
+        navigate(`/learning/audio/${selectedCourse.id}`);
+      } else {
+        navigate('/learning/audio');
+      }
+    }}
+    className="px-3 sm:px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition text-xs sm:text-sm"
+  >
+    🔊 Audio
+  </button>
+  <button
+    onClick={() => {
+      if (selectedCourse) {
+        navigate(`/learning/text/${selectedCourse.id}`);
+      } else {
+        navigate('/learning/text');
+      }
+    }}
+    className="px-3 sm:px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition text-xs sm:text-sm"
+  >
+    📖 Texte
+  </button>
+  <button
+    onClick={() => navigate('/')}
+    className="px-3 sm:px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition text-xs sm:text-sm"
+  >
+    🏠 Accueil
+  </button>
+</div>
+      </div>
+    </div>
   </div>
 );
 };
